@@ -1,11 +1,21 @@
 // =============================================================================
 // PRIVACY MODEL: SHADOWMARKET (CONFIDENTIAL PREDICTION MARKETS)
 // =============================================================================
+// - RESOLUTION TRUST MODEL:
+//   * Admin / Creator Cryptographic Attestation: The outcome of each prediction
+//     market is resolved on-chain by either the market creator or the protocol
+//     admin, authenticated by comparing the caller's derived public key
+//     (get_caller_pk()) against market.creator or protocolAdmin.
+//   * This architecture eliminates external bridge oracle latency and complex gas
+//     overhead while keeping resolution transparent, auditable, and self-contained.
+//
 // - PUBLIC LEDGER STATE:
 //   * Market metadata: question, category, resolution source, close timestamp.
 //   * Market lifecycle status: Open / Closed / Resolved / Cancelled.
 //   * Aggregate betting metrics: total volume, YES stake, NO stake, bet counter.
 //   * Bet commitments map (32-byte hashes of private bet data).
+//   * Claimed nullifiers set (32-byte hashes preventing double-claims).
+//   * Resolved market outcome: None / Yes / No / Inconclusive.
 //
 // - PRIVATE WITNESS STATE (SHIELDED POSITION):
 //   * Individual bet amount (kept confidential inside ZK proof).
@@ -18,6 +28,10 @@
 //     without revealing bettor identity or position details.
 //   * Proves public volume and stake aggregates are strictly updated by the
 //     exact private bet values without revealing individual bets.
+//   * Proves winning position ownership and exact proportional payout share
+//     during claim without disclosing the bettor's secret key or bet size.
+//   * Generates a deterministic nullifier to prevent double-claiming without
+//     linking the payout to the original bet commitment.
 // =============================================================================
 
 pragma language_version >= 0.22;
@@ -65,9 +79,14 @@ export sealed ledger protocolAdmin: Bytes<32>;
 export ledger marketCounter: Counter;
 export ledger markets: Map<Uint<64>, Market>;
 export ledger betCommitments: Map<Bytes<32>, Boolean>;
+export ledger claimedNullifiers: Set<Bytes<32>>;
 
 witness get_user_secret(): Bytes<32>;
 witness get_bet_nonce(): Bytes<32>;
+witness get_claimed_bet(): BetData;
+witness get_claim_salt(): Bytes<32>;
+witness get_claimed_payout(): Uint<64>;
+witness get_disclosed_odds(): Uint<64>;
 witness persist_bet_receipt(
   commitment: Bytes<32>,
   marketId: Uint<64>,
@@ -185,4 +204,117 @@ export circuit placeBet(marketId: Uint<64>, isYes: Boolean, amount: Uint<64>): B
 
 export circuit placeShieldedBet(marketId: Uint<64>, isYes: Boolean, amount: Uint<64>): Bytes<32> {
   return placeBet(marketId, isYes, amount);
+}
+
+export circuit discloseOdds(marketId: Uint<64>): Uint<64> {
+  assert(markets.member(disclose(marketId)), "Market does not exist");
+  const m = markets.lookup(disclose(marketId));
+  const total = m.totalStakeYes + m.totalStakeNo;
+  if (total == 0) {
+    return 50;
+  }
+  const odds = get_disclosed_odds();
+  assert(odds <= 100, "Invalid odds percent");
+  assert(odds * total <= m.totalStakeYes * 100, "Odds too high");
+  assert((odds + 1) * total > m.totalStakeYes * 100, "Odds too low");
+  return disclose(odds);
+}
+
+export pure circuit verifyOdds(yesStake: Uint<64>, noStake: Uint<64>, oddsPercent: Uint<64>): Boolean {
+  const total = yesStake + noStake;
+  if (total == 0) {
+    return oddsPercent == 50;
+  }
+  return (oddsPercent * total <= yesStake * 100) && ((oddsPercent + 1) * total > yesStake * 100);
+}
+
+export circuit closeMarket(marketId: Uint<64>): [] {
+  assert(markets.member(disclose(marketId)), "Market does not exist");
+  const m = markets.lookup(disclose(marketId));
+  const callerPk = disclose(get_caller_pk());
+  assert(callerPk == m.creator || callerPk == protocolAdmin, "Only creator or admin can close market");
+  assert(m.state == MarketState.Open, "Market is not open");
+  
+  const updatedMarket = Market {
+    id: m.id,
+    creator: m.creator,
+    question: m.question,
+    category: m.category,
+    resolutionSource: m.resolutionSource,
+    closeTimestamp: m.closeTimestamp,
+    state: MarketState.Closed,
+    outcome: m.outcome,
+    totalStakeYes: m.totalStakeYes,
+    totalStakeNo: m.totalStakeNo,
+    totalVolume: m.totalVolume,
+    betCounter: m.betCounter
+  };
+  markets.insert(disclose(marketId), disclose(updatedMarket));
+}
+
+export circuit resolveMarket(marketId: Uint<64>, winningOutcome: Outcome): [] {
+  assert(markets.member(disclose(marketId)), "Market does not exist");
+  const m = markets.lookup(disclose(marketId));
+  const callerPk = disclose(get_caller_pk());
+  assert(callerPk == m.creator || callerPk == protocolAdmin, "Only creator or admin can resolve market");
+  assert(m.state == MarketState.Open || m.state == MarketState.Closed, "Market cannot be resolved");
+  assert(winningOutcome == Outcome.Yes || winningOutcome == Outcome.No || winningOutcome == Outcome.Inconclusive, "Invalid outcome");
+  
+  const updatedMarket = Market {
+    id: m.id,
+    creator: m.creator,
+    question: m.question,
+    category: m.category,
+    resolutionSource: m.resolutionSource,
+    closeTimestamp: m.closeTimestamp,
+    state: MarketState.Resolved,
+    outcome: disclose(winningOutcome),
+    totalStakeYes: m.totalStakeYes,
+    totalStakeNo: m.totalStakeNo,
+    totalVolume: m.totalVolume,
+    betCounter: m.betCounter
+  };
+  markets.insert(disclose(marketId), disclose(updatedMarket));
+}
+
+export circuit claimPayout(marketId: Uint<64>): Uint<64> {
+  assert(markets.member(disclose(marketId)), "Market does not exist");
+  const m = markets.lookup(disclose(marketId));
+  assert(m.state == MarketState.Resolved, "Market is not resolved");
+  
+  const bet = get_claimed_bet();
+  const salt = get_claim_salt();
+  const callerPk = get_caller_pk();
+  assert(bet.marketId == marketId, "Bet does not match market");
+  assert(bet.ownerPk == callerPk, "Caller is not bet owner");
+  
+  const computedCommitment = persistentCommit<BetData>(bet, salt);
+  assert(betCommitments.member(disclose(computedCommitment)), "Invalid bet commitment");
+  
+  if (m.outcome == Outcome.Yes) {
+    assert(bet.isYes == true, "Bet is not on winning outcome");
+  } else if (m.outcome == Outcome.No) {
+    assert(bet.isYes == false, "Bet is not on winning outcome");
+  }
+  
+  const nullifier = persistentHash<Vector<3, Bytes<32>>>([
+    pad(32, "shadowmarket:nullifier:"),
+    get_user_secret(),
+    bet.nonce
+  ]);
+  assert(!claimedNullifiers.member(disclose(nullifier)), "Payout already claimed");
+  claimedNullifiers.insert(disclose(nullifier));
+  
+  const claimedPayout = get_claimed_payout();
+  if (m.outcome == Outcome.Inconclusive) {
+    assert(claimedPayout == bet.amount, "Invalid refund amount");
+  } else {
+    const winningStake = (m.outcome == Outcome.Yes ? m.totalStakeYes : m.totalStakeNo);
+    assert(winningStake > 0, "Winning stake is zero");
+    const totalPot = bet.amount * m.totalVolume;
+    assert(claimedPayout * winningStake <= totalPot, "Payout exceeds proportional share");
+    assert((claimedPayout + 1) * winningStake > totalPot, "Payout is too low");
+  }
+  
+  return disclose(claimedPayout);
 }

@@ -28,6 +28,10 @@ export type BetData = { marketId: bigint;
 export type Witnesses<PS> = {
   get_user_secret(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
   get_bet_nonce(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  get_claimed_bet(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, BetData];
+  get_claim_salt(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  get_claimed_payout(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
+  get_disclosed_odds(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
   persist_bet_receipt(context: __compactRuntime.WitnessContext<Ledger, PS>,
                       commitment_0: Uint8Array,
                       marketId_0: bigint,
@@ -50,6 +54,12 @@ export type ImpureCircuits<PS> = {
                    marketId_0: bigint,
                    isYes_0: boolean,
                    amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  closeMarket(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, []>;
+  resolveMarket(context: __compactRuntime.CircuitContext<PS>,
+                marketId_0: bigint,
+                winningOutcome_0: Outcome): __compactRuntime.CircuitResults<PS, []>;
+  claimPayout(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type ProvableCircuits<PS> = {
@@ -66,10 +76,17 @@ export type ProvableCircuits<PS> = {
                    marketId_0: bigint,
                    isYes_0: boolean,
                    amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  closeMarket(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, []>;
+  resolveMarket(context: __compactRuntime.CircuitContext<PS>,
+                marketId_0: bigint,
+                winningOutcome_0: Outcome): __compactRuntime.CircuitResults<PS, []>;
+  claimPayout(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type PureCircuits = {
   derivePublicKey(secret_0: Uint8Array): Uint8Array;
+  verifyOdds(yesStake_0: bigint, noStake_0: bigint, oddsPercent_0: bigint): boolean;
 }
 
 export type Circuits<PS> = {
@@ -88,6 +105,16 @@ export type Circuits<PS> = {
                    marketId_0: bigint,
                    isYes_0: boolean,
                    amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  verifyOdds(context: __compactRuntime.CircuitContext<PS>,
+             yesStake_0: bigint,
+             noStake_0: bigint,
+             oddsPercent_0: bigint): __compactRuntime.CircuitResults<PS, boolean>;
+  closeMarket(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, []>;
+  resolveMarket(context: __compactRuntime.CircuitContext<PS>,
+                marketId_0: bigint,
+                winningOutcome_0: Outcome): __compactRuntime.CircuitResults<PS, []>;
+  claimPayout(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type Ledger = {
@@ -106,6 +133,12 @@ export type Ledger = {
     member(key_0: Uint8Array): boolean;
     lookup(key_0: Uint8Array): boolean;
     [Symbol.iterator](): Iterator<[Uint8Array, boolean]>
+  };
+  claimedNullifiers: {
+    isEmpty(): boolean;
+    size(): bigint;
+    member(elem_0: Uint8Array): boolean;
+    [Symbol.iterator](): Iterator<Uint8Array>
   };
 }
 

@@ -34,4 +34,5 @@ export interface ShadowMarketPrivateState {
   secretKey: Uint8Array;
   receipts: Map<string, ShieldedBetReceipt>;
   activeClaimReceiptId?: string;
+  activeMarketId?: string;
 }
