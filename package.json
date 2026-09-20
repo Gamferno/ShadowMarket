@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "compile": "compact compile contracts/shadowmarket.compact managed/shadowmarket",
     "compile:skip-zk": "compact compile --skip-zk contracts/shadowmarket.compact managed/shadowmarket",
+    "deploy": "tsx deploy/deploy.ts",
+    "deploy:preprod": "tsx deploy/deploy.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
