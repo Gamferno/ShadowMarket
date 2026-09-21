@@ -15,3 +15,13 @@ ShadowMarket lets people bet on real-world outcomes with fully shielded individu
 - **ZK Cryptography**: Midnight Network (PLONK ZK-SNARKs)
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS
 - **Testing**: Vitest
+
+## Live Preprod Deployment
+
+- **Network**: Midnight Preprod
+- **Contract Address**: [`a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f`](https://explorer.preprod.midnight.network/address/a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f)
+- **Deployment Tx**: [`1136a4100f171c6a86a7e28ab7f4affd07b4c69b36bff5f74e04f1a3ff210108`](https://explorer.preprod.midnight.network/tx/1136a4100f171c6a86a7e28ab7f4affd07b4c69b36bff5f74e04f1a3ff210108)
+- **Block Height**: 2,692,353
+- **Deployer**: `mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85`
+- **Initial Market**: *"Will Midnight Mainnet launch with native Zero-Knowledge privacy in 2026?"*
+
