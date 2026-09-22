@@ -1,6 +1,8 @@
 import { MarketState, Outcome, type MarketCategory, type MarketSortOption } from '../types/index.ts';
 import { INITIAL_SEEDED_MARKET, type MarketPublicData } from './contract.ts';
-import { loadReceipts } from './storage.ts';
+import { loadReceipts, loadCreatedMarkets, storeCreatedMarket, loadMarketOverrides, storeMarketOverride } from './storage.ts';
+
+export { storeCreatedMarket, storeMarketOverride };
 
 export interface OddsSnapshot {
   timestamp: number;
@@ -54,26 +56,38 @@ export const SEEDED_MARKETS: MarketPublicData[] = [
 ];
 
 export function getAllMarkets(): MarketPublicData[] {
-  // Update market 1 dynamically with any local bets placed on Preprod
-  const receipts = Array.from(loadReceipts().values()).filter(r => r.marketId === '1');
-  let yesStake = 0n;
-  let noStake = 0n;
-  for (const r of receipts) {
-    if (r.isYes) yesStake += r.amount;
-    else noStake += r.amount;
+  const receipts = Array.from(loadReceipts().values());
+  const created = loadCreatedMarkets();
+  const overrides = loadMarketOverrides();
+
+  // Combine seeded markets with user-created markets (preventing duplicate IDs)
+  const combined = [...SEEDED_MARKETS];
+  for (const c of created) {
+    if (!combined.some(m => m.id === c.id)) {
+      combined.push(c);
+    }
   }
 
-  return SEEDED_MARKETS.map(m => {
-    if (m.id === '1') {
-      return {
-        ...m,
-        totalStakeYes: INITIAL_SEEDED_MARKET.totalStakeYes + yesStake,
-        totalStakeNo: INITIAL_SEEDED_MARKET.totalStakeNo + noStake,
-        totalVolume: INITIAL_SEEDED_MARKET.totalVolume + yesStake + noStake,
-        betCounter: INITIAL_SEEDED_MARKET.betCounter + BigInt(receipts.length)
-      };
+  return combined.map(m => {
+    // Tally any local bets for this market
+    const marketReceipts = receipts.filter(r => r.marketId === m.id);
+    let yesStake = 0n;
+    let noStake = 0n;
+    for (const r of marketReceipts) {
+      if (r.isYes) yesStake += r.amount;
+      else noStake += r.amount;
     }
-    return m;
+
+    const override = overrides[m.id] || {};
+
+    return {
+      ...m,
+      totalStakeYes: m.totalStakeYes + yesStake,
+      totalStakeNo: m.totalStakeNo + noStake,
+      totalVolume: m.totalVolume + yesStake + noStake,
+      betCounter: m.betCounter + BigInt(marketReceipts.length),
+      ...override
+    };
   });
 }
 
@@ -81,6 +95,7 @@ export function getMarketById(id: string): MarketPublicData | undefined {
   const all = getAllMarkets();
   return all.find(m => m.id === id) || all.find(m => m.id === '1');
 }
+
 
 export function filterAndSortMarkets(
   markets: MarketPublicData[],

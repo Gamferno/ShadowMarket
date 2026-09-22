@@ -45,6 +45,13 @@ export const LandingPage: React.FC = () => {
             <span>→</span>
           </Link>
           <Link
+            to="/create"
+            className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 font-semibold text-sm rounded-xl border border-cyan-800/60 hover:border-cyan-500/60 transition-all cursor-pointer flex items-center gap-2"
+          >
+            <span>+</span>
+            <span>Create Market</span>
+          </Link>
+          <Link
             to="/about"
             className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-sm rounded-xl border border-slate-800 transition-all cursor-pointer"
           >

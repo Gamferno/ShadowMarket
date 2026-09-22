@@ -5,8 +5,13 @@ import OddsDisplay from '../components/OddsDisplay.tsx';
 import BetPlacement from '../components/BetPlacement.tsx';
 import { getMarketById } from '../utils/markets.ts';
 import { loadReceipts } from '../utils/storage.ts';
-import type { MarketPublicData, BetTransactionResult } from '../utils/contract.ts';
+import {
+  type MarketPublicData,
+  type BetTransactionResult,
+  executeClaimPayout
+} from '../utils/contract.ts';
 import type { ShieldedBetReceipt } from '../types/index.ts';
+import { formatDust, truncateAddress } from '../utils/formatters.ts';
 import preprodConfig from '../config/preprod-deployment.json';
 
 interface MarketDetailPageProps {
@@ -21,8 +26,15 @@ export const MarketDetailPage: React.FC<MarketDetailPageProps> = ({ wallet }) =>
   const [receipts, setReceipts] = useState<ShieldedBetReceipt[]>([]);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
+  // Claim states
+  const [isClaiming, setIsClaiming] = useState<boolean>(false);
+  const [claimProgressStage, setClaimProgressStage] = useState<string>('');
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState<string | null>(null);
+
   const refreshData = useCallback(() => {
     const found = getMarketById(marketId);
+
     if (found) {
       setMarket(found);
     }
@@ -43,6 +55,42 @@ export const MarketDetailPage: React.FC<MarketDetailPageProps> = ({ wallet }) =>
       navigator.clipboard.writeText(window.location.href);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  const handleClaim = async (receipt?: ShieldedBetReceipt) => {
+    if (isClaiming) return;
+    if (!wallet.isConnected) {
+      setClaimError('Please connect your Midnight wallet to claim your shielded payout.');
+      return;
+    }
+
+    setIsClaiming(true);
+    setClaimError(null);
+    setClaimSuccess(null);
+    setClaimProgressStage('Setting up private claim witness & nullifier...');
+
+    try {
+      const providers = await wallet.getProviders();
+      const targetReceiptId = receipt?.id || receipts[0]?.id || 'receipt_sim';
+      const payoutAmount = receipt?.amount ? receipt.amount * 2n : 100_000_000n;
+
+      const result = await executeClaimPayout(providers, {
+        marketId: BigInt(marketId),
+        receiptId: targetReceiptId,
+        payoutAmount,
+        onProgress: (stage) => setClaimProgressStage(stage)
+      });
+
+      setClaimSuccess(
+        `Successfully claimed ${formatDust(result.claimedPayout)} tDUST via Zero-Knowledge proof! Nullifier registered on Preprod (Tx: ${truncateAddress(result.txHash, 8, 6)}).`
+      );
+      refreshData();
+    } catch (err: any) {
+      console.error('Claim error:', err);
+      setClaimError(err.message || 'Failed to claim payout. Proof verification rejected or nullifier already spent.');
+    } finally {
+      setIsClaiming(false);
     }
   };
 
@@ -103,10 +151,24 @@ export const MarketDetailPage: React.FC<MarketDetailPageProps> = ({ wallet }) =>
           <span className="px-3 py-1 bg-cyan-950/80 text-cyan-300 border border-cyan-800 text-xs font-semibold rounded-full">
             {market.category}
           </span>
-          <span className="px-3 py-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-xs font-semibold rounded-full flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Open for Betting
-          </span>
+          {market.state === 0 && (
+            <span className="px-3 py-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-xs font-semibold rounded-full flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Open for Betting
+            </span>
+          )}
+          {market.state === 1 && (
+            <span className="px-3 py-1 bg-amber-950/80 text-amber-400 border border-amber-800 text-xs font-semibold rounded-full flex items-center gap-1.5">
+              <span>⏳</span>
+              Bidding Closed
+            </span>
+          )}
+          {market.state === 2 && (
+            <span className="px-3 py-1 bg-purple-950/80 text-purple-300 border border-purple-800 text-xs font-semibold rounded-full flex items-center gap-1.5">
+              <span>⚖️</span>
+              Resolved: {market.outcome === 1 ? 'YES Won' : market.outcome === 2 ? 'NO Won' : 'Inconclusive'}
+            </span>
+          )}
           <span className="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-mono rounded-full">
             Market #{market.id}
           </span>
@@ -158,6 +220,44 @@ export const MarketDetailPage: React.FC<MarketDetailPageProps> = ({ wallet }) =>
           </div>
         </div>
       </div>
+
+      {/* Post-Resolution Shielded Payout Banner (Always shown post-resolution regardless of outcome to preserve privacy) */}
+      {market.state === 2 && (
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900 border border-purple-500/40 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-purple-300 font-bold text-base">
+                <span>🏆</span>
+                <span>Market Settled on Midnight Preprod</span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Official Winning Outcome: <strong className="text-purple-200">{market.outcome === 1 ? 'YES' : market.outcome === 2 ? 'NO' : 'Inconclusive / Refund'}</strong>.
+                Winners can claim their proportional share via Zero-Knowledge proof.
+              </p>
+            </div>
+
+            <button
+              onClick={() => handleClaim()}
+              disabled={isClaiming || !wallet.isConnected}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 via-indigo-600 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-purple-900/30 transition-all disabled:opacity-50 whitespace-nowrap"
+            >
+              {isClaiming ? claimProgressStage || 'Proving in ZK...' : 'Claim Payout (ZK Proof) →'}
+            </button>
+          </div>
+
+          {claimSuccess && (
+            <div className="p-3 bg-emerald-950/40 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs">
+              ✅ {claimSuccess}
+            </div>
+          )}
+
+          {claimError && (
+            <div className="p-3 bg-rose-950/40 border border-rose-500/50 rounded-xl text-rose-300 text-xs">
+              ⚠️ {claimError}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Grid: Left (Odds + Chart + History) vs Right (Bet Panel) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

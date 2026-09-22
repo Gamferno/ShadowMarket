@@ -12,3 +12,20 @@ export function hexToBytes(hex: string): Uint8Array {
   }
   return bytes;
 }
+
+export function truncateAddress(address: string, lead = 10, tail = 8): string {
+  if (!address || address.length <= lead + tail) return address || '';
+  return `${address.slice(0, lead)}...${address.slice(-tail)}`;
+}
+
+export function formatDust(amount: bigint | number): string {
+  const num = typeof amount === 'bigint' ? Number(amount) : amount;
+  // If amount is small (< 1000) treat as tDUST units directly, else if large micro-units divide by 1M
+  if (num > 100_000) {
+    return (num / 1_000_000).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+  }
+  return num.toLocaleString();
+}

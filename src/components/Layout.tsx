@@ -59,21 +59,38 @@ export const Layout: React.FC<LayoutProps> = ({ children, wallet }) => {
               How It Works
             </NavLink>
 
-            <span
-              className="text-slate-600 hover:text-slate-400 transition-colors cursor-not-allowed flex items-center gap-1"
-              title="Phase 6 feature"
+            <NavLink
+              to="/create"
+              className={({ isActive }) =>
+                `transition-colors cursor-pointer ${
+                  isActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`
+              }
             >
-              <span>Create Market</span>
-              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-900 border border-slate-800 text-slate-500">P6</span>
-            </span>
+              Create Market
+            </NavLink>
 
-            <span
-              className="text-slate-600 hover:text-slate-400 transition-colors cursor-not-allowed flex items-center gap-1"
-              title="Phase 6 feature"
+            <NavLink
+              to="/portfolio"
+              className={({ isActive }) =>
+                `transition-colors cursor-pointer ${
+                  isActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`
+              }
             >
-              <span>Portfolio</span>
-              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-900 border border-slate-800 text-slate-500">P6</span>
-            </span>
+              Portfolio
+            </NavLink>
+
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `transition-colors cursor-pointer ${
+                  isActive ? 'text-purple-400 font-bold' : 'text-slate-400 hover:text-purple-300'
+                }`
+              }
+            >
+              Resolver
+            </NavLink>
           </nav>
 
           {/* Right Header Area: Wallet Connect */}
@@ -110,12 +127,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, wallet }) => {
             </p>
           </div>
 
-          <div className="flex items-center gap-6 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center justify-center md:justify-end gap-5 text-xs text-slate-400">
             <Link to="/markets" className="hover:text-cyan-400 transition-colors">
               Explore Markets
             </Link>
+            <Link to="/create" className="hover:text-cyan-400 transition-colors">
+              Create Market
+            </Link>
+            <Link to="/portfolio" className="hover:text-cyan-400 transition-colors">
+              Portfolio
+            </Link>
+            <Link to="/admin" className="hover:text-purple-400 transition-colors">
+              Resolver
+            </Link>
             <Link to="/about" className="hover:text-cyan-400 transition-colors">
-              Privacy Architecture
+              How It Works
             </Link>
             <a
               href="https://explorer.preprod.midnight.network"

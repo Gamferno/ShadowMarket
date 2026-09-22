@@ -196,7 +196,18 @@ export const BetPlacement: React.FC<BetPlacementProps> = ({ market, wallet, onBe
 
       {/* Action Button */}
       <div>
-        {!wallet.isConnected ? (
+        {market.state === 1 /* MarketState.Closed */ ? (
+          <div className="w-full py-3.5 px-4 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-center text-xs font-bold">
+            Bidding Closed — Awaiting Oracle Resolution
+          </div>
+        ) : market.state === 2 /* MarketState.Resolved */ ? (
+          <div className="w-full py-3.5 px-4 rounded-xl bg-purple-950/40 border border-purple-500/40 text-purple-300 text-center text-xs font-bold space-y-1">
+            <div>Market Permanently Resolved</div>
+            <div className="text-[11px] font-mono text-slate-400">
+              Outcome: {market.outcome === 1 ? 'YES Won' : market.outcome === 2 ? 'NO Won' : 'Inconclusive'}
+            </div>
+          </div>
+        ) : !wallet.isConnected ? (
           <button
             type="button"
             onClick={() => wallet.connect('1am')}

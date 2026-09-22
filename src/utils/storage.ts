@@ -63,3 +63,89 @@ export function createInitialPrivateState(
     receipts
   };
 }
+
+export function markReceiptClaimed(receiptId: string, payoutAmount: bigint): void {
+  const receipts = loadReceipts();
+  const receipt = receipts.get(receiptId);
+  if (receipt) {
+    receipt.claimed = true;
+    receipt.claimedPayout = payoutAmount;
+    receipts.set(receiptId, receipt);
+    saveReceipts(receipts);
+  }
+}
+
+const CREATED_MARKETS_KEY = 'shadowmarket_created_markets_v1';
+const MARKET_OVERRIDES_KEY = 'shadowmarket_overrides_v1';
+
+export function storeCreatedMarket(market: any): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const existing = loadCreatedMarkets();
+      const serializable = {
+        ...market,
+        closeTimestamp: market.closeTimestamp.toString(),
+        totalStakeYes: market.totalStakeYes.toString(),
+        totalStakeNo: market.totalStakeNo.toString(),
+        totalVolume: market.totalVolume.toString(),
+        betCounter: market.betCounter.toString()
+      };
+      existing.push(serializable);
+      window.localStorage.setItem(CREATED_MARKETS_KEY, JSON.stringify(existing));
+    } catch (err) {
+      console.warn('Failed to save created market:', err);
+    }
+  }
+}
+
+export function loadCreatedMarkets(): any[] {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem(CREATED_MARKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.map((m: any) => ({
+          ...m,
+          closeTimestamp: BigInt(m.closeTimestamp),
+          totalStakeYes: BigInt(m.totalStakeYes),
+          totalStakeNo: BigInt(m.totalStakeNo),
+          totalVolume: BigInt(m.totalVolume),
+          betCounter: BigInt(m.betCounter)
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to load created markets:', err);
+    }
+  }
+  return [];
+}
+
+export function storeMarketOverride(marketId: string, updates: any): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const existing = loadMarketOverrides();
+      existing[marketId] = {
+        ...existing[marketId],
+        ...updates
+      };
+      window.localStorage.setItem(MARKET_OVERRIDES_KEY, JSON.stringify(existing));
+    } catch (err) {
+      console.warn('Failed to save market override:', err);
+    }
+  }
+}
+
+export function loadMarketOverrides(): Record<string, any> {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem(MARKET_OVERRIDES_KEY);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch (err) {
+      console.warn('Failed to load market overrides:', err);
+    }
+  }
+  return {};
+}
+

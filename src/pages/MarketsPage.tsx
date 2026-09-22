@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import MarketCard from '../components/MarketCard.tsx';
 import { getAllMarkets, filterAndSortMarkets } from '../utils/markets.ts';
 import type { MarketCategory, MarketSortOption } from '../types/index.ts';
@@ -43,9 +44,16 @@ export const MarketsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400 rounded-xl">
-            {filteredMarkets.length} {filteredMarkets.length === 1 ? 'Market' : 'Markets'} Active
+        <div className="flex items-center gap-3">
+          <Link
+            to="/create"
+            className="px-3.5 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5"
+          >
+            <span>+</span>
+            <span>Create Market</span>
+          </Link>
+          <span className="px-3 py-1.5 bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400 rounded-xl hidden sm:inline-block">
+            {filteredMarkets.length} {filteredMarkets.length === 1 ? 'Market' : 'Markets'}
           </span>
         </div>
       </div>
@@ -127,16 +135,24 @@ export const MarketsPage: React.FC = () => {
               No active prediction markets match your query or selected category filter.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedCategory('All');
-            }}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
-          >
-            Reset Filters
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('All');
+              }}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
+            >
+              Reset Filters
+            </button>
+            <Link
+              to="/create"
+              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
+            >
+              Create New Market →
+            </Link>
+          </div>
         </div>
       )}
     </div>
