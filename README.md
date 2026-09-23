@@ -1,5 +1,9 @@
 # ShadowMarket
 
+[![CI](https://github.com/ompathak/ShadowMarket/actions/workflows/ci.yml/badge.svg)](https://github.com/ompathak/ShadowMarket/actions/workflows/ci.yml)
+[![Network: Midnight Preprod](https://img.shields.io/badge/Network-Midnight%20Preprod-7c3aed)](https://explorer.preprod.midnight.network/address/a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > Privacy-native prediction markets on the Midnight Network.
 
 ## Overview
@@ -24,4 +28,15 @@ ShadowMarket lets people bet on real-world outcomes with fully shielded individu
 - **Block Height**: 2,692,353
 - **Deployer**: `mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85`
 - **Initial Market**: *"Will Midnight Mainnet launch with native Zero-Knowledge privacy in 2026?"*
+
+## Continuous Integration & Verification
+
+ShadowMarket runs automated CI on every push and pull request via [GitHub Actions](.github/workflows/ci.yml):
+
+- **Toolchain**: Node.js 20, Compact Developer CLI toolchain.
+- **Contract Verification**: Validates Compact circuit syntax and generated types in `managed/shadowmarket`.
+- **Type Checking**: Strict TypeScript validation (`npm run lint` / `tsc --noEmit`).
+- **Test Suite**: Automated execution of 14 contract lifecycle and ZK proof unit tests (`npm test`).
+- **Production Build**: Complete compilation and bundle packaging of the frontend (`npm run build`).
+
 
