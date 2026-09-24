@@ -1,7 +1,10 @@
 # ShadowMarket — MVP Demo Video Recording Script
 
-**Target Duration**: 2:30 – 3:00 minutes  
-**Format**: Screen capture with audio voiceover and on-screen camera overlay  
+**Target Duration**: ~1:48 minutes (108.3 seconds)  
+**Format**: High-definition screen capture (2880x1800)  
+**Deliverables**:
+- [**`demo.mp4`**](../demo.mp4) (H.264 / AAC / yuv420p, 9.0 MB)
+- [**`demo.webm`**](../demo.webm) (VP9 / yuv420p, 23.8 MB)  
 **Target Audience**: Hackathon judges, Midnight Foundation, Web3 developers, DeFi prediction market users  
 
 ---
