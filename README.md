@@ -1,6 +1,6 @@
 # ShadowMarket
 
-[![CI](https://github.com/ompathak/ShadowMarket/actions/workflows/ci.yml/badge.svg)](https://github.com/ompathak/ShadowMarket/actions/workflows/ci.yml)
+[![CI](https://github.com/Gamferno/ShadowMarket/actions/workflows/ci.yml/badge.svg)](https://github.com/Gamferno/ShadowMarket/actions/workflows/ci.yml)
 [![Network: Midnight Preprod](https://img.shields.io/badge/Network-Midnight%20Preprod-7c3aed)](https://preprod.midnightexplorer.com/contracts/0xa52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f)
 [![Compact: v0.22](https://img.shields.io/badge/Compact-v0.22-cyan)](https://github.com/midnightntwrk/compact)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -171,7 +171,7 @@ ShadowMarket features all 7 production pages specified in the system design:
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/ompathak/ShadowMarket.git
+git clone https://github.com/Gamferno/ShadowMarket.git
 cd ShadowMarket
 npm install
 ```

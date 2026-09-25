@@ -16,7 +16,7 @@ The following launch tweets are prepared for publication on X ([@shadow_market1]
 > ⚡ Live now on Midnight Preprod!
 >
 > Read our architecture & try the live contract:  
-> https://github.com/ompathak/ShadowMarket  
+> https://github.com/Gamferno/ShadowMarket  
 > #MidnightNetwork #ZeroKnowledge #DeFi #Cardano #Web3Privacy
 
 ---
@@ -53,8 +53,8 @@ The following launch tweets are prepared for publication on X ([@shadow_market1]
 > ▫️ Monitoring private positions decrypted client-side  
 > ▫️ Oracle resolution & claiming payouts via ZK nullifiers  
 >
-> 🌐 GitHub + Docs: https://github.com/ompathak/ShadowMarket  
-> 📖 Step-by-Step Guide: https://github.com/ompathak/ShadowMarket/blob/main/docs/USAGE.md  
+> 🌐 GitHub + Docs: https://github.com/Gamferno/ShadowMarket  
+> 📖 Step-by-Step Guide: https://github.com/Gamferno/ShadowMarket/blob/main/docs/USAGE.md  
 >
 > Predict fearlessly. The future is confidential. 🌑
 >
