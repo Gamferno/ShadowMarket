@@ -1,6 +1,6 @@
 # ShadowMarket — Official Launch Tweets
 
-The following 3 launch tweets are prepared for publication on X ([@ShadowMarketZK](https://x.com/ShadowMarketZK)) to introduce ShadowMarket to the Midnight, Cardano, and broader Web3 prediction market communities.
+The following launch tweets are prepared for publication on X ([@shadow_market1](https://x.com/shadow_market1)) to introduce ShadowMarket to the Midnight, Cardano, and broader Web3 prediction market communities.
 
 ---
 
@@ -8,7 +8,7 @@ The following 3 launch tweets are prepared for publication on X ([@ShadowMarketZ
 
 > Prediction markets have achieved product-market fit. But on transparent chains like Polymarket, every bet is exposed to front-running, copy-trading bots, and permanent financial surveillance.
 >
-> Introducing **ShadowMarket** (@ShadowMarketZK): The first privacy-native prediction market protocol built on @MidnightNtwrk.
+> Introducing **ShadowMarket** (@shadow_market1): The first privacy-native prediction market protocol built on @MidnightNtwrk.
 >
 > 🔒 100% Shielded Stakes & Side Choices  
 > 📈 Verifiable On-Chain Aggregate Odds  
@@ -59,3 +59,40 @@ The following 3 launch tweets are prepared for publication on X ([@ShadowMarketZ
 > Predict fearlessly. The future is confidential. 🌑
 >
 > #MidnightDev #PredictionMarkets #ZK #Web3
+
+---
+
+## Short-Form 1:1 Square Posts (< 280 Characters)
+
+### Short Post 1: Launch & Core Value Prop
+**Image**: [`assets/social/post1_square.jpg`](../assets/social/post1_square.jpg)
+
+```text
+Transparent prediction markets leak your alpha and dox your beliefs.
+
+@shadow_market1 fixes this.
+
+🛡️ 100% shielded stakes & sides
+⚡ Aggregate odds via Zero-Knowledge proofs
+🔒 Unlinkable payout claims
+
+Predict fearlessly on @MidnightNtwrk 🌑
+
+#MidnightNetwork #ZeroKnowledge #Web3
+```
+
+---
+
+### Short Post 2: Live on Preprod Announcement
+**Image**: [`assets/social/post2_square.jpg`](../assets/social/post2_square.jpg)
+
+```text
+ShadowMarket is officially LIVE on @MidnightNtwrk Preprod! 🚀
+
+Bet on real-world outcomes with zero front-running and zero copy-trading.
+
+📜 Contract: 0xa52c...e75f
+🔍 Explorer: https://preprod.midnightexplorer.com/contracts/0xa52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f
+
+#DeFi #ZK #Web3
+```

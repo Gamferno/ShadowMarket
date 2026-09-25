@@ -4,7 +4,7 @@
 [![Network: Midnight Preprod](https://img.shields.io/badge/Network-Midnight%20Preprod-7c3aed)](https://preprod.midnightexplorer.com/contracts/0xa52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f)
 [![Compact: v0.22](https://img.shields.io/badge/Compact-v0.22-cyan)](https://github.com/midnightntwrk/compact)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![X Profile](https://img.shields.io/badge/Follow-@ShadowMarketZK-black?logo=x)](https://x.com/ShadowMarketZK)
+[![X Profile](https://img.shields.io/badge/Follow-@shadow__market1-black?logo=x)](https://x.com/shadow_market1)
 
 > **Privacy-Native Prediction Markets on the Midnight Network.**  
 > Bet on real-world outcomes with 100% shielded individual stakes and side choices while aggregate market odds update on-chain verifiably via Zero-Knowledge PLONK proofs.
@@ -23,7 +23,7 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 | **Block Height** | `2,692,353` | Block #2,692,353 |
 | **Deployer Wallet** | `mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85` | Unshielded Preprod Address |
 | **Initial Market #1** | *"Will Midnight Mainnet launch with native Zero-Knowledge privacy in 2026?"* | Live on Preprod Ledger |
-| **Live Web App Demo** | `http://localhost:3000/` | Local & Static SPA (`HashRouter`) |
+| **Live Web App Demo** | [`shadowmarket-woad.vercel.app`](https://shadowmarket-woad.vercel.app/) | [Launch DApp ↗](https://shadowmarket-woad.vercel.app/) |
 | **Demo Preview (GIF)** | [`demo.gif`](demo.gif) | Animated Walkthrough / 960x600 @ 10fps (10.0 MB) |
 | **Demo Video (MP4)** | [`demo.mp4`](demo.mp4) | Universal H.264 / 2880x1800 @ 30fps (22.2 MB, 2m 32s) |
 | **Demo Video (WebM)** | [`demo.webm`](demo.webm) | High-Efficiency VP9 / 2880x1800 @ 30fps (13.2 MB, 2m 32s) |
@@ -272,7 +272,7 @@ ShadowMarket uses GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows
 
 ## Community & Ecosystem Attribution
 
-- **Product X (Twitter)**: [@ShadowMarketZK](https://x.com/ShadowMarketZK)
+- **Product X (Twitter)**: [@shadow_market1](https://x.com/shadow_market1)
 - **Midnight Network**: Built with pride on [Midnight Network](https://midnight.network) using Compact smart contracts.
 - **Electric Capital Ecosystem**: This project is part of the Midnight developer ecosystem and tagged with `midnightntwrk` and `compact`.
 
