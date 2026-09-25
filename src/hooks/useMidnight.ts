@@ -124,7 +124,19 @@ export const useMidnight = (): MidnightWalletState => {
         throw new Error(`Wallet extension ${preferred || '1am'} not found in window.midnight.`);
       }
 
-      const api: ConnectedAPI = await walletToConnect.connect('preprod');
+      let api: ConnectedAPI;
+      try {
+        api = await walletToConnect.connect('preprod');
+      } catch (firstErr: any) {
+        // Chrome MV3 extension background service workers may be dormant; retry once if initial handshake dropped
+        if (firstErr?.code !== 'PermissionRejected') {
+          console.warn('Initial wallet connection dropped, retrying handshake...', firstErr);
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          api = await walletToConnect.connect('preprod');
+        } else {
+          throw firstErr;
+        }
+      }
       setConnectedApi(api);
       setConnectedWallet(walletName);
 

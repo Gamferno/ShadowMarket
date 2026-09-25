@@ -24,8 +24,8 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 | **Deployer Wallet** | `mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85` | Unshielded Preprod Address |
 | **Initial Market #1** | *"Will Midnight Mainnet launch with native Zero-Knowledge privacy in 2026?"* | Live on Preprod Ledger |
 | **Live Web App Demo** | `http://localhost:3000/` | Local & Static SPA (`HashRouter`) |
-| **Demo Video (MP4)** | [`demo.mp4`](demo.mp4) | Universal H.264 / AAC / 2880x1800 (9.0 MB) |
-| **Demo Video (WebM)** | [`demo.webm`](demo.webm) | High-Efficiency VP9 / 2880x1800 (23.8 MB) |
+| **Demo Video (MP4)** | [`demo.mp4`](demo.mp4) | Universal H.264 / 2880x1800 @ 30fps (22.2 MB) |
+| **Demo Video (WebM)** | [`demo.webm`](demo.webm) | High-Efficiency VP9 / 2880x1800 @ 30fps (13.2 MB) |
 
 ---
 
@@ -33,8 +33,8 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 
 Watch the complete end-to-end protocol walkthrough demonstrating live wallet connection, market exploration, shielded Zero-Knowledge bet placement, permissionless market creation, decrypted private portfolio receipts, and oracle resolver operations on Midnight Preprod:
 
-- **Download / Stream MP4 (Universal H.264)**: [**`demo.mp4`**](demo.mp4) *(9.0 MB)*
-- **Download / Stream WebM (VP9)**: [**`demo.webm`**](demo.webm) *(23.8 MB)*
+- **Download / Stream MP4 (Universal H.264)**: [**`demo.mp4`**](demo.mp4) *(22.2 MB, 2880x1800 @ 30fps)*
+- **Download / Stream WebM (VP9)**: [**`demo.webm`**](demo.webm) *(13.2 MB, 2880x1800 @ 30fps)*
 - **Demo Script & Breakdown**: [**`docs/DEMO_SCRIPT.md`**](docs/DEMO_SCRIPT.md)
 
 ---
