@@ -29,19 +29,21 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 
 ---
 
-## 🎬 Video Demonstration
+## Demo Video
 
-Watch the complete end-to-end protocol walkthrough (2m 32s, <3 minutes) demonstrating live wallet connection, market exploration, shielded Zero-Knowledge bet placement, permissionless market creation, decrypted private portfolio receipts, and oracle resolver operations on Midnight Preprod:
+<video src="demo.webm" controls="controls" width="100%" style="max-width: 100%; border-radius: 8px;">
+  <source src="demo.webm" type="video/webm">
+  Your browser does not support the WebM video tag.
+</video>
 
-- **Download / Stream MP4 (Universal H.264)**: [**`demo.mp4`**](demo.mp4) *(22.2 MB, 2880x1800 @ 30fps, duration: 2m 32s)*
-- **Download / Stream WebM (VP9)**: [**`demo.webm`**](demo.webm) *(13.2 MB, 2880x1800 @ 30fps, duration: 2m 32s)*
+> 📥 **Prefer MP4?** Download or view [**`demo.mp4`**](demo.mp4) *(Universal H.264 / 2880x1800 @ 30fps, 22.2 MB)*
 
-The video captures the full desktop workflow including:
-1. **Wallet Connection**: Connecting to Midnight Preprod via 1am Wallet (CAIP-372) and probing the local Docker proof server on port 6300.
-2. **Markets Discovery**: Searching active prediction markets, filtering by category chip, and viewing real-time responsive SVG odds charts.
-3. **Shielded Bet Placement**: Placing a 50 tDUST bet on YES, generating the PLONK circuit proof via Docker proof server, signing via 1am Wallet, and confirming the commitment hash on Preprod explorer.
+The demo walkthrough (2m 32s, <3 minutes) demonstrates:
+1. **Wallet Connection**: Connecting to Midnight Preprod via 1am Wallet (CAIP-372) and checking the local Docker proof server (port 6300).
+2. **Markets Discovery**: Searching prediction markets, filtering by category chip, and viewing real-time responsive SVG odds charts.
+3. **Shielded Bet Placement**: Placing a 50 tDUST bet on YES, generating the PLONK circuit proof locally, signing via 1am Wallet, and confirming the commitment hash on-chain.
 4. **Permissionless Market Creation**: Submitting the `createMarket` transaction to deploy a new prediction market on-chain.
-5. **Decrypted Portfolio**: Inspecting client-side decrypted positions in browser private state.
+5. **Decrypted Portfolio**: Inspecting client-side decrypted positions in private browser storage.
 6. **Oracle Resolution & Anonymous Claim**: Executing market resolution and claiming winning payouts with double-claim prevention via one-way cryptographic nullifiers.
 
 ---
