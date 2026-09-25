@@ -24,6 +24,7 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 | **Deployer Wallet** | `mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85` | Unshielded Preprod Address |
 | **Initial Market #1** | *"Will Midnight Mainnet launch with native Zero-Knowledge privacy in 2026?"* | Live on Preprod Ledger |
 | **Live Web App Demo** | `http://localhost:3000/` | Local & Static SPA (`HashRouter`) |
+| **Demo Preview (GIF)** | [`demo.gif`](demo.gif) | Animated Walkthrough / 960x600 @ 10fps (10.0 MB) |
 | **Demo Video (MP4)** | [`demo.mp4`](demo.mp4) | Universal H.264 / 2880x1800 @ 30fps (22.2 MB, 2m 32s) |
 | **Demo Video (WebM)** | [`demo.webm`](demo.webm) | High-Efficiency VP9 / 2880x1800 @ 30fps (13.2 MB, 2m 32s) |
 
@@ -31,12 +32,11 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 
 ## Demo Video
 
-<video src="demo.webm" controls="controls" width="100%" style="max-width: 100%; border-radius: 8px;">
-  <source src="demo.webm" type="video/webm">
-  Your browser does not support the WebM video tag.
-</video>
+![ShadowMarket MVP Demo Walkthrough](demo.gif)
 
-> 📥 **Prefer MP4?** Download or view [**`demo.mp4`**](demo.mp4) *(Universal H.264 / 2880x1800 @ 30fps, 22.2 MB)*
+> 📥 **Full-Resolution High-Definition Downloads (2880x1800 @ 30fps)**:
+> - [**`demo.mp4`**](demo.mp4) *(Universal H.264 / 22.2 MB, duration: 2m 32s)*
+> - [**`demo.webm`**](demo.webm) *(High-Efficiency VP9 / 13.2 MB, duration: 2m 32s)*
 
 The demo walkthrough (2m 32s, <3 minutes) demonstrates:
 1. **Wallet Connection**: Connecting to Midnight Preprod via 1am Wallet (CAIP-372) and checking the local Docker proof server (port 6300).
