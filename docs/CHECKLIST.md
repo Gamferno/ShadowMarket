@@ -16,7 +16,7 @@ This document audits and confirms that every requirement from **Part 4 & Part 5 
 | **Complete Production README** | Part 4 (Phase 8) & Part 5 | [README.md](../README.md) with verified deployment table, architecture diagrams, quickstart, and testing guides (no empty placeholders) | **VERIFIED** |
 | **CI/CD Pipeline Running** | Part 4 (Phase 7) & Part 5 | [.github/workflows/ci.yml](../.github/workflows/ci.yml) with automated compile, lint, test, build, and status badge in README | **VERIFIED** |
 | **Product X Profile & Tweets** | Part 4 (Phase 9) & Part 5 | Linked in README: [@ShadowMarketZK](https://x.com/ShadowMarketZK). 3 launch tweets documented in [docs/LAUNCH_TWEETS.md](LAUNCH_TWEETS.md) | **VERIFIED** |
-| **MVP Demo Video Script** | Part 4 (Phase 9) & Part 5 | [docs/DEMO_SCRIPT.md](DEMO_SCRIPT.md) covers 3-minute structured screen & voiceover walkthrough | **VERIFIED** |
+| **MVP Demo Video** | Part 4 (Phase 9) & Part 5 | [`demo.mp4`](../demo.mp4) (22.2 MB, H.264) & [`demo.webm`](../demo.webm) (13.2 MB, VP9) 2880x1800 @ 30fps | **VERIFIED** |
 | **Zero Production Build Errors** | Part 4 (Phase 9) | `npm run build` (`tsc && vite build`) executes cleanly with zero diagnostic or bundling errors | **VERIFIED** |
 | **15+ Meaningful Commits** | Part 4 (Phase 9) & Part 5 | Verified in git log history across all phases with high commit hygiene | **VERIFIED** |
 
