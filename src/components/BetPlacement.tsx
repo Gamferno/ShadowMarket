@@ -277,7 +277,7 @@ export const BetPlacement: React.FC<BetPlacementProps> = ({ market, wallet, onBe
           </div>
           <div className="pt-1">
             <a
-              href={`https://explorer.preprod.midnight.network/tx/${recentTx.txHash}`}
+              href={`https://preprod.midnightexplorer.com/transactions/0x${recentTx.txHash.replace(/^0x/, '')}`}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-cyan-400 hover:underline font-mono inline-flex items-center gap-1"

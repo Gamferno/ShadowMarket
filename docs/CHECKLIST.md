@@ -8,7 +8,7 @@ This document audits and confirms that every requirement from **Part 4 & Part 5 
 
 | Requirement | Requirement Source | Implementation Detail | Status |
 |---|---|---|---|
-| **Live Contract on Preprod** | Part 4 (Phase 3) & Part 5 | Contract Address: [`a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f`](https://explorer.preprod.midnight.network/address/a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f), Block Height: `2,692,353`, Deployment Tx: [`1136a410...`](https://explorer.preprod.midnight.network/tx/1136a4100f171c6a86a7e28ab7f4affd07b4c69b36bff5f74e04f1a3ff210108) | **VERIFIED** |
+| **Live Contract on Preprod** | Part 4 (Phase 3) & Part 5 | Contract Address: [`a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f`](https://preprod.midnightexplorer.com/contracts/0xa52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f), Block Height: `2,692,353`, Deployment Tx: [`818d801f...`](https://preprod.midnightexplorer.com/transactions/0x818d801fcd9c2fc5cc72ebc25230f7699f7d75947f29fd723d8cc477ffb06f96) | **VERIFIED** |
 | **All 7 Pages Built (No Stubs)** | Part 2 & Part 4 (Phase 4–6) | 1. Landing (`/`)<br>2. Markets (`/markets`)<br>3. Market Detail (`/markets/:id`)<br>4. Create Market (`/create`)<br>5. Portfolio (`/portfolio`)<br>6. Resolver Console (`/admin`)<br>7. About (`/about`) | **VERIFIED** |
 | **Client-Side ZK Proving** | Part 1 & Part 4 (Phase 1–2) | PLONK ZK-SNARK circuit proving on Docker proof server (port 6300) via `@midnight-ntwrk/compact-runtime` and `FetchZkConfigProvider` | **VERIFIED** |
 | **Full Lifecycle Manual Walkthrough** | Part 4 (Phase 6) | Create Market → Shielded Bet → Odds Disclosure → Close Bidding → Oracle Resolution → Anonymous Claim via Nullifiers | **VERIFIED** |

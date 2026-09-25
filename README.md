@@ -1,7 +1,7 @@
 # ShadowMarket
 
 [![CI](https://github.com/ompathak/ShadowMarket/actions/workflows/ci.yml/badge.svg)](https://github.com/ompathak/ShadowMarket/actions/workflows/ci.yml)
-[![Network: Midnight Preprod](https://img.shields.io/badge/Network-Midnight%20Preprod-7c3aed)](https://explorer.preprod.midnight.network/address/a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f)
+[![Network: Midnight Preprod](https://img.shields.io/badge/Network-Midnight%20Preprod-7c3aed)](https://preprod.midnightexplorer.com/contracts/0xa52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f)
 [![Compact: v0.22](https://img.shields.io/badge/Compact-v0.22-cyan)](https://github.com/midnightntwrk/compact)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![X Profile](https://img.shields.io/badge/Follow-@ShadowMarketZK-black?logo=x)](https://x.com/ShadowMarketZK)
@@ -18,8 +18,8 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 | Parameter | Value | Links |
 |---|---|---|
 | **Target Network** | `Midnight Preprod` | [Preprod Status](https://docs.midnight.network/) |
-| **Contract Address** | `a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f` | [View on Explorer ↗](https://explorer.preprod.midnight.network/address/a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f) |
-| **Deployment Transaction** | `1136a4100f171c6a86a7e28ab7f4affd07b4c69b36bff5f74e04f1a3ff210108` | [View Transaction ↗](https://explorer.preprod.midnight.network/tx/1136a4100f171c6a86a7e28ab7f4affd07b4c69b36bff5f74e04f1a3ff210108) |
+| **Contract Address** | `a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f` | [View on Explorer ↗](https://preprod.midnightexplorer.com/contracts/0xa52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f) |
+| **Deployment Transaction** | `818d801fcd9c2fc5cc72ebc25230f7699f7d75947f29fd723d8cc477ffb06f96` | [View Transaction ↗](https://preprod.midnightexplorer.com/transactions/0x818d801fcd9c2fc5cc72ebc25230f7699f7d75947f29fd723d8cc477ffb06f96) |
 | **Block Height** | `2,692,353` | Block #2,692,353 |
 | **Deployer Wallet** | `mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85` | Unshielded Preprod Address |
 | **Initial Market #1** | *"Will Midnight Mainnet launch with native Zero-Knowledge privacy in 2026?"* | Live on Preprod Ledger |

@@ -1,13 +1,13 @@
 {
   "networkId": "preprod",
   "contractAddress": "a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f",
-  "txHash": "1136a4100f171c6a86a7e28ab7f4affd07b4c69b36bff5f74e04f1a3ff210108",
+  "txHash": "818d801fcd9c2fc5cc72ebc25230f7699f7d75947f29fd723d8cc477ffb06f96",
   "deployedAtBlock": 2692353,
   "deployerAddress": "mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85",
   "indexerUri": "https://indexer.preprod.midnight.network/api/v4/graphql",
   "indexerWsUri": "wss://indexer.preprod.midnight.network/api/v4/graphql/ws",
   "nodeUri": "https://rpc.preprod.midnight.network",
   "proofServerUri": "http://127.0.0.1:6300",
-  "explorerContractUrl": "https://explorer.preprod.midnight.network/address/a52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f",
-  "explorerTxUrl": "https://explorer.preprod.midnight.network/tx/1136a4100f171c6a86a7e28ab7f4affd07b4c69b36bff5f74e04f1a3ff210108"
+  "explorerContractUrl": "https://preprod.midnightexplorer.com/contracts/0xa52c2b11fa381d65fdf201642560cc949a8b6b0427da02bc327bd090012ce75f",
+  "explorerTxUrl": "https://preprod.midnightexplorer.com/transactions/0x818d801fcd9c2fc5cc72ebc25230f7699f7d75947f29fd723d8cc477ffb06f96"
 }

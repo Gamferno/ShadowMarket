@@ -144,7 +144,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, wallet }) => {
               How It Works
             </Link>
             <a
-              href="https://explorer.preprod.midnight.network"
+              href="https://preprod.midnightexplorer.com"
               target="_blank"
               rel="noreferrer"
               className="hover:text-cyan-400 transition-colors"

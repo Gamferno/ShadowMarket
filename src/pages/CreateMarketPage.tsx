@@ -131,9 +131,18 @@ export const CreateMarketPage: React.FC<CreateMarketPageProps> = ({ wallet }) =>
               <span className="text-slate-500">Assigned Market ID:</span>
               <span className="text-cyan-300 font-bold">#{successResult.id}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center gap-2">
               <span className="text-slate-500">Transaction Hash:</span>
-              <span className="text-slate-300 truncate max-w-xs">{successResult.txHash}</span>
+              <a
+                href={`https://preprod.midnightexplorer.com/transactions/0x${successResult.txHash.replace(/^0x/, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-cyan-400 hover:underline truncate max-w-xs font-mono inline-flex items-center gap-1"
+                title="View on Midnight Explorer"
+              >
+                <span>{successResult.txHash}</span>
+                <span>↗</span>
+              </a>
             </div>
           </div>
           <div className="flex gap-3 pt-2">
