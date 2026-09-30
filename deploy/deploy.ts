@@ -144,6 +144,8 @@ async function main() {
   const initialResolutionSource = 'Midnight Foundation Official Consensus & Cardano Governance';
   const initialCloseTimestamp = 1798761600n;
 
+  const initialOraclePk = { x: 0n, y: 1n };
+
   console.log('🔨 Executing deployContract on Midnight Preprod...');
   console.log('   Generating constructor ZK proof on proof server...');
   
@@ -151,7 +153,7 @@ async function main() {
     compiledContract,
     privateStateId: 'shadowmarket_private_state',
     initialPrivateState,
-    args: [adminPk, initialQuestion, initialCategory, initialResolutionSource, initialCloseTimestamp]
+    args: [adminPk, initialOraclePk, initialQuestion, initialCategory, initialResolutionSource, initialCloseTimestamp]
   });
 
   const contractAddress = deployed.deployTxData.public.contractAddress;

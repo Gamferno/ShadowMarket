@@ -1,161 +1,301 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import MarketCard from '../components/MarketCard.tsx';
-import { getMarketById } from '../utils/markets.ts';
-import preprodConfig from '../config/preprod-deployment.json';
+import { getAllMarkets } from '../utils/markets.ts';
 
 export const LandingPage: React.FC = () => {
-  const featuredMarket = getMarketById('1');
+  const allMarkets = getAllMarkets();
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedSort, setSelectedSort] = useState<'trending' | 'volume' | 'newest'>('trending');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [shieldedOnly, setShieldedOnly] = useState<boolean>(false);
+
+  const categories = ['All', 'Politics', 'Crypto', 'Tech', 'Pop Culture', 'Elections', 'Business'];
+
+  const filteredMarkets = allMarkets.filter((m) => {
+    const matchesCategory =
+      selectedCategory === 'All' ||
+      m.category.toLowerCase().includes(selectedCategory.toLowerCase());
+    const matchesSearch =
+      !searchQuery ||
+      m.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.category.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
-    <div className="space-y-16 animate-fadeIn py-4">
-      {/* Hero Section */}
-      <section className="text-center max-w-4xl mx-auto space-y-6 pt-4">
-        {/* Network & Live Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs shadow-lg">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-slate-300 font-medium">Smart Contract Live on Midnight Preprod</span>
-          <span className="text-slate-600">•</span>
-          <span className="font-mono text-cyan-400">Block #{preprodConfig.deployedAtBlock}</span>
+    <div className="space-y-8 py-2 font-sans">
+      {/* 1. Featured Breaking Market Hero Card */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#161820] to-[#121316] border border-[#2D313E] p-6 sm:p-7 shadow-xl">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Left Column: Breaking Question & Sentiment Bar */}
+          <div className="lg:col-span-8 space-y-3.5">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+                Featured Resolution
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#1C1E26] text-[#94A3B8] border border-[#252832]">
+                Macro / Interest Rates
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                100% Escrow Collateralized
+              </span>
+            </div>
+
+            <Link to="/markets/1" className="block group">
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white group-hover:text-[#F59E0B] transition-colors leading-tight">
+                Will the US Federal Reserve cut benchmark interest rates by 25+ bps in the upcoming FOMC meeting?
+              </h2>
+            </Link>
+
+            <p className="text-xs sm:text-sm text-[#94A3B8] leading-relaxed max-w-2xl">
+              Settlement determined via official Board of Governors Federal Reserve statement. High-conviction market consensus currently favors an active easing cycle.
+            </p>
+
+            {/* High-Contrast Dual Probability Bar */}
+            <div className="space-y-1.5 pt-1 max-w-xl">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#0EA5E9]" />
+                  <span className="text-white">Yes 74%</span>
+                  <span className="text-[#64748B] tabular-nums font-normal">($0.74)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[#64748B] tabular-nums font-normal">($0.26)</span>
+                  <span className="text-white">No 26%</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#F43F5E]" />
+                </div>
+              </div>
+
+              {/* Visual Track */}
+              <div className="h-2.5 w-full bg-[#0A0B0D] rounded-full p-0.5 flex overflow-hidden border border-[#252832]">
+                <div
+                  className="h-full bg-[#0EA5E9] rounded-l-full transition-all duration-700 shadow-[0_0_12px_rgba(14,165,233,0.35)]"
+                  style={{ width: '74%' }}
+                />
+                <div className="w-[1px] bg-[#0A0B0D]" />
+                <div
+                  className="h-full bg-[#F43F5E] rounded-r-full transition-all duration-700 shadow-[0_0_12px_rgba(244,63,94,0.35)]"
+                  style={{ width: '26%' }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-[#64748B] pt-0.5">
+                <span>Verified Consensus Oracle</span>
+                <span>Resolves Nov 15</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Instant Action Buttons */}
+          <div className="lg:col-span-4 bg-[#13151A] border border-[#252832] rounded-xl p-4 shadow-xl flex flex-col justify-between gap-3">
+            <div className="flex items-center justify-between border-b border-[#252832] pb-2 text-xs">
+              <span className="font-bold text-white">Instant Order Slip</span>
+              <span className="text-emerald-400 font-medium">Zero Slippage</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <Link
+                to="/markets/1?outcome=yes"
+                className="py-3 px-4 rounded-lg bg-[#0EA5E9]/12 hover:bg-[#0EA5E9]/22 border border-[#0EA5E9]/35 hover:border-[#0EA5E9] text-[#0EA5E9] text-center transition-all group"
+              >
+                <div className="text-[11px] text-[#94A3B8] font-medium mb-0.5">Buy YES</div>
+                <div className="text-lg font-bold text-[#0EA5E9] tabular-nums">74¢</div>
+              </Link>
+
+              <Link
+                to="/markets/1?outcome=no"
+                className="py-3 px-4 rounded-lg bg-[#F43F5E]/12 hover:bg-[#F43F5E]/22 border border-[#F43F5E]/35 hover:border-[#F43F5E] text-[#F43F5E] text-center transition-all group"
+              >
+                <div className="text-[11px] text-[#94A3B8] font-medium mb-0.5">Buy NO</div>
+                <div className="text-lg font-bold text-[#F43F5E] tabular-nums">26¢</div>
+              </Link>
+            </div>
+
+            <div className="text-center pt-1">
+              <Link
+                to="/markets/1"
+                className="text-xs text-[#F59E0B] hover:text-[#D97706] font-medium hover:underline inline-flex items-center gap-1"
+              >
+                <span>View Full Market Chart &amp; Depth</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
         </div>
 
-        {/* Main Headline */}
-        <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-slate-100 leading-tight">
-          Privacy-Native Prediction Markets on{' '}
-          <span className="bg-gradient-to-r from-cyan-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-            Midnight
-          </span>
-        </h1>
+        {/* Ambient subtle glow background */}
+        <div className="absolute right-0 top-0 bottom-0 w-96 bg-gradient-to-l from-[#F59E0B]/5 to-transparent pointer-events-none" />
+      </section>
 
-        {/* Subtitle */}
-        <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Bet on real-world outcomes with fully shielded individual positions and publicly verifiable aggregate odds. Combining Polymarket product-market fit with Zero-Knowledge guarantees.
-        </p>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-          <Link
-            to="/markets"
-            className="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm rounded-xl shadow-xl shadow-cyan-500/20 transition-all cursor-pointer flex items-center gap-2"
-          >
-            <span>Explore Markets</span>
-            <span>→</span>
-          </Link>
-          <Link
-            to="/create"
-            className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 font-semibold text-sm rounded-xl border border-cyan-800/60 hover:border-cyan-500/60 transition-all cursor-pointer flex items-center gap-2"
-          >
-            <span>+</span>
-            <span>Create Market</span>
-          </Link>
-          <Link
-            to="/about"
-            className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-sm rounded-xl border border-slate-800 transition-all cursor-pointer"
-          >
-            How Privacy Works
-          </Link>
+      {/* 2. Category Navigation Pill Bar */}
+      <section className="space-y-4">
+        {/* Horizontal Category Strip */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-[#252832] pb-3">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                selectedCategory === cat
+                  ? 'bg-[#F59E0B] text-[#0A0B0D] shadow-md font-bold'
+                  : 'bg-[#13151A] border border-[#252832] text-[#94A3B8] hover:text-white hover:bg-[#1C1E26]'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
 
-        {/* Key Metrics Pill Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 max-w-3xl mx-auto">
-          <div className="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl">
-            <div className="text-2xl font-black text-cyan-400 font-mono">100%</div>
-            <div className="text-[11px] text-slate-400">Shielded Stakes</div>
+        {/* Secondary Sub-Filter Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+          {/* Sort Filters */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setSelectedSort('trending')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                selectedSort === 'trending'
+                  ? 'bg-[#1C1E26] text-white border border-[#252832]'
+                  : 'text-[#94A3B8] hover:text-white'
+              }`}
+            >
+              <span>🔥</span>
+              <span>Trending</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedSort('volume')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                selectedSort === 'volume'
+                  ? 'bg-[#1C1E26] text-white border border-[#252832]'
+                  : 'text-[#94A3B8] hover:text-white'
+              }`}
+            >
+              <span>📊</span>
+              <span>High Volume</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedSort('newest')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                selectedSort === 'newest'
+                  ? 'bg-[#1C1E26] text-white border border-[#252832]'
+                  : 'text-[#94A3B8] hover:text-white'
+              }`}
+            >
+              <span>✨</span>
+              <span>New</span>
+            </button>
           </div>
-          <div className="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl">
-            <div className="text-2xl font-black text-purple-400 font-mono">0</div>
-            <div className="text-[11px] text-slate-400">MEV / Copy-Trading</div>
-          </div>
-          <div className="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl">
-            <div className="text-2xl font-black text-emerald-400 font-mono">PLONK</div>
-            <div className="text-[11px] text-slate-400">ZK-SNARK Proofs</div>
-          </div>
-          <div className="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl">
-            <div className="text-2xl font-black text-amber-400 font-mono">Preprod</div>
-            <div className="text-[11px] text-slate-400">Live Network</div>
+
+          {/* Right Controls: ZK Shield toggle & Search */}
+          <div className="flex items-center gap-3">
+            {/* ZK Shielded Only Toggle */}
+            <button
+              type="button"
+              onClick={() => setShieldedOnly(!shieldedOnly)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                shieldedOnly
+                  ? 'bg-[#F59E0B]/15 text-[#FBBF24] border-[#F59E0B]/40'
+                  : 'bg-[#13151A] text-[#94A3B8] border-[#252832] hover:text-white'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+              <span>ZK Shielded</span>
+            </button>
+
+            {/* In-page filter search input */}
+            <div className="relative min-w-[200px] sm:min-w-[240px]">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter markets..."
+                className="w-full bg-[#13151A] border border-[#252832] focus:border-[#F59E0B] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-[#64748B] focus:outline-none transition-colors"
+              />
+              <span className="absolute left-2.5 top-2 text-[#64748B] text-xs">
+                🔍
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 3-Step Privacy Architecture Section */}
-      <section className="space-y-8 max-w-5xl mx-auto">
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-100">
-            How ShadowMarket Works
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-            Three cryptographic steps ensuring complete bettor confidentiality while maintaining verifiable on-chain truth.
+      {/* 3. Markets Grid */}
+      <section>
+        {filteredMarkets.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredMarkets.map((market) => (
+              <MarketCard key={market.id} market={market} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-[#13151A] border border-[#252832] rounded-xl space-y-3">
+            <div className="text-3xl">🔍</div>
+            <h3 className="font-bold text-white text-base">No markets found</h3>
+            <p className="text-xs text-[#94A3B8]">
+              No prediction markets match your filter or search query.
+            </p>
+            <button
+              onClick={() => {
+                setSelectedCategory('All');
+                setSearchQuery('');
+              }}
+              className="px-4 py-2 bg-[#1C1E26] hover:bg-[#252832] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* 4. Why Shielded Markets Feature Grid */}
+      <section className="border-t border-[#252832] pt-8 space-y-6">
+        <div>
+          <h2 className="text-lg font-bold text-white">Why Shielded Prediction Markets?</h2>
+          <p className="text-xs text-[#94A3B8] mt-0.5">
+            How Midnight Network zero-knowledge cryptography solves the structural flaws of transparent prediction platforms.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Step 1 */}
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3 relative overflow-hidden group hover:border-slate-700 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-800 flex items-center justify-center font-black text-cyan-300 text-sm">
-              1
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-[#13151A] border border-[#252832] rounded-xl p-5 space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center font-bold text-sm">
+              🛡️
             </div>
-            <h3 className="font-bold text-slate-100 text-base">Shielded Bet Placement</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              You choose YES or NO and enter your stake. Your local machine generates a Zero-Knowledge commitment using Midnight's proof server. Neither your position nor your wallet identity is ever published.
+            <h3 className="font-bold text-white text-sm">Zero Front-Running &amp; MEV</h3>
+            <p className="text-xs text-[#94A3B8] leading-relaxed">
+              Transparent mempools on Ethereum and Polygon allow bots to front-run large wagers. On Midnight, bets remain inside private zero-knowledge commitments.
             </p>
-            <div className="text-[11px] font-mono text-cyan-400 bg-cyan-950/40 p-2 rounded border border-cyan-900/60">
-              Circuit: placeShieldedBet
-            </div>
           </div>
 
-          {/* Step 2 */}
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3 relative overflow-hidden group hover:border-slate-700 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-purple-950 border border-purple-800 flex items-center justify-center font-black text-purple-300 text-sm">
-              2
+          <div className="bg-[#13151A] border border-[#252832] rounded-xl p-5 space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center font-bold text-sm">
+              🔒
             </div>
-            <h3 className="font-bold text-slate-100 text-base">Public Aggregate Odds</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              The smart contract verifies that public odds accurately reflect all hidden bets using the Compact ZK tally proof without opening any individual bet.
+            <h3 className="font-bold text-white text-sm">Private Bet Amounts &amp; Choices</h3>
+            <p className="text-xs text-[#94A3B8] leading-relaxed">
+              Bettor addresses, chosen outcomes, and stake sizes are never recorded in plaintext on-chain. Only aggregate odds are published through the ZK tally circuit.
             </p>
-            <div className="text-[11px] font-mono text-purple-400 bg-purple-950/40 p-2 rounded border border-purple-900/60">
-              Circuit: discloseOdds
-            </div>
           </div>
 
-          {/* Step 3 */}
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3 relative overflow-hidden group hover:border-slate-700 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-800 flex items-center justify-center font-black text-emerald-300 text-sm">
-              3
+          <div className="bg-[#13151A] border border-[#252832] rounded-xl p-5 space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center font-bold text-sm">
+              ⚡
             </div>
-            <h3 className="font-bold text-slate-100 text-base">Anonymous Claim Payout</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              When the market resolves, winning bettors claim their proportional payout by proving receipt ownership and burning a unique nullifier to prevent double-spending without revealing which bet is being claimed.
+            <h3 className="font-bold text-white text-sm">Anonymous Payout Claims</h3>
+            <p className="text-xs text-[#94A3B8] leading-relaxed">
+              Redeem winning positions anonymously using cryptographic nullifiers. Anyone can verify your right to claim without knowing which original bet was yours.
             </p>
-            <div className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 p-2 rounded border border-emerald-900/60">
-              Circuit: claimPayout
-            </div>
           </div>
         </div>
       </section>
-
-      {/* Featured Live Market Section */}
-      {featuredMarket && (
-        <section className="max-w-4xl mx-auto space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-200">Featured On-Chain Market</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800">
-                Preprod Contract
-              </span>
-            </div>
-            <Link to="/markets" className="text-xs text-cyan-400 hover:underline">
-              View All Markets →
-            </Link>
-          </div>
-
-          <div className="w-full">
-            <MarketCard market={featuredMarket} />
-          </div>
-        </section>
-      )}
     </div>
   );
 };

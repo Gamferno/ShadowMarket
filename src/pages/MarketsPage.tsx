@@ -13,11 +13,11 @@ const CATEGORIES: MarketCategory[] = [
   'Custom'
 ];
 
-const SORT_OPTIONS: MarketSortOption[] = [
-  'Trending',
-  'Closing Soon',
-  'Newest',
-  'Highest Volume'
+const SORT_OPTIONS: { label: string; value: MarketSortOption; icon: string }[] = [
+  { label: 'Trending', value: 'Trending', icon: '🔥' },
+  { label: 'Closing Soon', value: 'Closing Soon', icon: '⏱️' },
+  { label: 'Newest', value: 'Newest', icon: '✨' },
+  { label: 'Highest Volume', value: 'Highest Volume', icon: '📊' }
 ];
 
 export const MarketsPage: React.FC = () => {
@@ -32,123 +32,134 @@ export const MarketsPage: React.FC = () => {
   }, [allMarkets, searchQuery, selectedCategory, selectedSort]);
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+    <div className="space-y-6 py-2 font-sans">
+      {/* 1. Directory Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#252832] pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100">
-            Prediction Markets
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#13151A] border border-[#252832] text-[11px] text-[#FBBF24] font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+              Midnight Preprod
+            </span>
+            <span className="text-xs text-[#64748B]">•</span>
+            <span className="text-xs text-[#94A3B8]">Confidential Liquidity</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Prediction Markets Directory
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Browse and take shielded positions on active outcomes. All individual bets remain encrypted via Zero-Knowledge proofs.
+          <p className="text-xs sm:text-sm text-[#94A3B8] mt-1 max-w-2xl leading-relaxed">
+            Trade confidential positions with on-chain settlement. Stakes, positions, and user identities remain privately shielded.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
             to="/create"
-            className="px-3.5 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5"
+            className="px-4 py-2 bg-[#F59E0B] hover:bg-[#D97706] text-[#0A0B0D] font-bold text-xs uppercase tracking-wider rounded-lg shadow transition-all flex items-center gap-1.5 active:scale-[0.98]"
           >
             <span>+</span>
             <span>Create Market</span>
           </Link>
-          <span className="px-3 py-1.5 bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400 rounded-xl hidden sm:inline-block">
+          <span className="px-3 py-2 bg-[#13151A] border border-[#252832] text-xs tabular-nums font-medium text-[#94A3B8] rounded-lg hidden sm:inline-block">
             {filteredMarkets.length} {filteredMarkets.length === 1 ? 'Market' : 'Markets'}
           </span>
         </div>
       </div>
 
-      {/* Search, Categories & Sort Controls */}
-      <div className="space-y-4">
-        {/* Top Controls: Search Bar + Sort Dropdown */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1">
-            <span className="absolute left-3.5 top-3 text-slate-500 text-sm">🔍</span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search markets by title, question or oracle source..."
-              className="w-full bg-slate-900/80 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-400 font-medium whitespace-nowrap">Sort:</label>
-            <select
-              value={selectedSort}
-              onChange={(e) => setSelectedSort(e.target.value as MarketSortOption)}
-              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
+      {/* 2. Filter Strip */}
+      <div className="space-y-3">
         {/* Category Filter Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-transparent shadow-md shadow-cyan-600/20'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  ? 'bg-[#F59E0B] text-[#0A0B0D] shadow-md font-bold'
+                  : 'bg-[#13151A] border border-[#252832] text-[#94A3B8] hover:text-white hover:bg-[#1C1E26]'
               }`}
             >
               {cat}
             </button>
           ))}
         </div>
+
+        {/* Sub-Filter Controls: Search + Sort Tabs */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+          {/* Sort Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSelectedSort(opt.value)}
+                className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  selectedSort === opt.value
+                    ? 'bg-[#1C1E26] text-white border border-[#252832]'
+                    : 'text-[#94A3B8] hover:text-white hover:bg-[#1C1E26]'
+                }`}
+              >
+                <span>{opt.icon}</span>
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Search Input */}
+          <div className="relative min-w-[220px] sm:min-w-[260px]">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search markets by title or source..."
+              className="w-full bg-[#13151A] border border-[#252832] focus:border-[#F59E0B] rounded-lg pl-8 pr-8 py-1.5 text-xs text-white placeholder-[#64748B] focus:outline-none transition-colors"
+            />
+            <span className="absolute left-2.5 top-2 text-[#64748B] text-xs">
+              🔍
+            </span>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2 text-[#64748B] hover:text-white text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Markets Grid */}
+      {/* 3. Markets Grid */}
       {filteredMarkets.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredMarkets.map((m) => (
             <MarketCard key={m.id} market={m} />
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-2xl space-y-4">
-          <div className="text-4xl">🔍</div>
-          <div className="space-y-1">
-            <h3 className="font-bold text-slate-200 text-base">No markets found</h3>
-            <p className="text-xs text-slate-400">
-              No active prediction markets match your query or selected category filter.
-            </p>
-          </div>
-          <div className="flex items-center justify-center gap-3">
+        <div className="text-center py-16 bg-[#13151A] border border-[#252832] rounded-xl space-y-3">
+          <div className="text-3xl">🔍</div>
+          <h3 className="font-bold text-white text-base">No markets found</h3>
+          <p className="text-xs text-[#94A3B8]">
+            No active prediction markets match your filter or search query.
+          </p>
+          <div className="flex items-center justify-center gap-3 pt-1">
             <button
               type="button"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('All');
               }}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
+              className="px-4 py-2 bg-[#1C1E26] hover:bg-[#252832] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
             >
               Reset Filters
             </button>
             <Link
               to="/create"
-              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
+              className="px-4 py-2 bg-[#F59E0B] hover:bg-[#D97706] text-[#0A0B0D] font-bold text-xs uppercase rounded-lg shadow transition-all"
             >
               Create New Market →
             </Link>

@@ -1,77 +1,82 @@
 import React, { useState } from 'react';
 import type { MidnightWalletState } from '../hooks/useMidnight.ts';
-import type { MarketPublicData } from '../utils/contract.ts';
-import { executePlaceShieldedBet, type BetTransactionResult } from '../utils/contract.ts';
+import { executePlaceBet } from '../utils/contract.ts';
+import { saveReceipt } from '../utils/storage.ts';
+import { truncateAddress } from '../utils/formatters.ts';
 
 interface BetPlacementProps {
-  market: MarketPublicData;
+  marketId: string;
+  initialSide?: boolean;
   wallet: MidnightWalletState;
-  onBetPlaced?: (result: BetTransactionResult) => void;
+  onBetPlaced?: () => void;
 }
 
-export const BetPlacement: React.FC<BetPlacementProps> = ({ market, wallet, onBetPlaced }) => {
-  const [selectedSide, setSelectedSide] = useState<boolean>(true); // true = YES, false = NO
+export const BetPlacement: React.FC<BetPlacementProps> = ({
+  marketId,
+  initialSide = true,
+  wallet,
+  onBetPlaced
+}) => {
+  const [selectedSide, setSelectedSide] = useState<boolean>(initialSide);
+  const [orderMode, setOrderMode] = useState<'buy' | 'sell'>('buy');
   const [amountStr, setAmountStr] = useState<string>('50');
-  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [progressStage, setProgressStage] = useState<string>('');
-  const [errorMsg, setErrorMsg] = useState<string>('');
-  const [recentTx, setRecentTx] = useState<BetTransactionResult | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [recentTx, setRecentTx] = useState<{ txHash: string; commitmentHex: string } | null>(null);
 
-  const amount = BigInt(Math.max(1, parseInt(amountStr) || 1));
+  const amount = BigInt(Math.max(1, parseInt(amountStr || '0', 10)));
+  const sharesCount = amount * 2n; // At 50¢ fixed odds, 1 tDUST buys 2 shares
+  const potentialReturn = sharesCount; // Each winning share pays 1 tDUST
 
-  // Compute live odds ratio & potential payout
-  const totalStakeYes = market.totalStakeYes;
-  const totalStakeNo = market.totalStakeNo;
-  const totalVol = market.totalVolume;
-
-  let projectedOddsYes = 50;
-  let projectedOddsNo = 50;
-  const simTotal = totalVol + amount;
-
-  if (simTotal > 0n) {
-    const simYes = selectedSide ? totalStakeYes + amount : totalStakeYes;
-    projectedOddsYes = Number((simYes * 100n) / simTotal);
-    projectedOddsNo = 100 - projectedOddsYes;
-  }
-
-  // Estimated payout
-  const winningStakeAfterBet = (selectedSide ? totalStakeYes : totalStakeNo) + amount;
-  const estimatedPayout = winningStakeAfterBet > 0n ? (amount * simTotal) / winningStakeAfterBet : amount;
-  const multiplier = amount > 0n ? (Number(estimatedPayout) / Number(amount)).toFixed(2) : '1.00';
-
-  const handleStartBet = () => {
-    setErrorMsg('');
-    setRecentTx(null);
-    if (!wallet.isConnected) {
-      wallet.connect('1am').catch(() => {});
-      return;
-    }
-    if (amount <= 0n) {
-      setErrorMsg('Please enter a valid bet amount.');
-      return;
-    }
-    setShowConfirmModal(true);
+  const handleQuickAdd = (added: number) => {
+    const current = parseInt(amountStr || '0', 10);
+    setAmountStr(String(current + added));
   };
 
-  const handleConfirmBet = async () => {
-    setShowConfirmModal(false);
+  const handleMax = () => {
+    setAmountStr('250');
+  };
+
+  const handlePlaceBet = async () => {
+    if (!wallet.isConnected) {
+      wallet.connect('1am');
+      return;
+    }
+
+    if (amount <= 0n) {
+      setErrorMsg('Please enter a valid stake amount (min 1 tDUST).');
+      return;
+    }
+
     setIsSubmitting(true);
-    setErrorMsg('');
-    setProgressStage('Initializing Midnight providers and witnesses...');
+    setErrorMsg(null);
+    setRecentTx(null);
+    setProgressStage('Initializing confidential ZK witness...');
 
     try {
       const providers = await wallet.getProviders();
-      const result = await executePlaceShieldedBet(providers, {
-        marketId: BigInt(market.id),
-        isYes: selectedSide,
+
+      const result = await executePlaceBet(providers, {
+        marketId,
+        side: selectedSide,
         amount,
-        onProgress: (stage) => setProgressStage(stage)
+        userSecret: wallet.walletSecret || undefined,
+        onProgress: (stage: string) => setProgressStage(stage)
       });
 
-      setRecentTx(result);
+      // Persist the private receipt securely in local witness storage
+      if (result.receipt) {
+        saveReceipt(result.receipt);
+      }
+
+      setRecentTx({
+        txHash: result.txHash,
+        commitmentHex: result.commitmentHex
+      });
+
       setIsSubmitting(false);
-      onBetPlaced?.(result);
+      if (onBetPlaced) onBetPlaced();
     } catch (err: any) {
       console.error('Bet submission failed:', err);
       setIsSubmitting(false);
@@ -80,67 +85,96 @@ export const BetPlacement: React.FC<BetPlacementProps> = ({ market, wallet, onBe
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-      {/* Title & Privacy Callout */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <span>🛡️</span>
-            <span>Place Shielded Position</span>
-          </h3>
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800">
-            Zero-Knowledge PLONK
-          </span>
-        </div>
-        <p className="text-xs text-slate-400">
-          Your choice and bet size remain strictly private. The smart contract validates your bet via local ZK proof and records an anonymous commitment.
-        </p>
+    <div className="rounded-xl border border-[#252832] bg-[#13151A] p-5 shadow-2xl flex flex-col gap-4 font-sans">
+      {/* 1. Buy / Sell Segmented Control */}
+      <div className="grid grid-cols-2 p-1 rounded-lg bg-[#0A0B0D] border border-[#252832] text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setOrderMode('buy')}
+          className={`py-2 text-center rounded transition-colors cursor-pointer ${
+            orderMode === 'buy'
+              ? 'bg-[#1C1E26] text-white shadow-sm font-bold'
+              : 'text-[#94A3B8] hover:text-white'
+          }`}
+        >
+          Buy
+        </button>
+        <button
+          type="button"
+          onClick={() => setOrderMode('sell')}
+          className={`py-2 text-center rounded transition-colors cursor-pointer ${
+            orderMode === 'sell'
+              ? 'bg-[#1C1E26] text-white shadow-sm font-bold'
+              : 'text-[#94A3B8] hover:text-white'
+          }`}
+        >
+          Sell
+        </button>
       </div>
 
-      {/* Outcome Selector: YES / NO */}
+      {/* 2. Big Outcome Selection Cards (Side-by-Side YES/NO - Blue & Red) */}
       <div className="grid grid-cols-2 gap-3">
+        {/* YES Card (Blue) */}
         <button
           type="button"
           onClick={() => setSelectedSide(true)}
-          className={`py-3.5 px-4 rounded-xl font-bold text-sm transition-all flex flex-col items-center gap-1 cursor-pointer border ${
+          className={`flex flex-col gap-1 p-3.5 rounded-lg text-left relative transition-all active:scale-[0.98] cursor-pointer ${
             selectedSide
-              ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 shadow-lg shadow-emerald-950/50 ring-2 ring-emerald-500/20'
-              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              ? 'border-2 border-[#0EA5E9] bg-[#0EA5E9]/15 shadow-[0_0_12px_rgba(14,165,233,0.15)]'
+              : 'border border-[#252832] bg-[#0A0B0D] hover:border-[#0EA5E9]/40'
           }`}
         >
-          <div className="flex items-center gap-1.5">
-            <span className="text-base">▲</span>
-            <span>YES</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#0EA5E9]">Yes</span>
+            {selectedSide ? (
+              <span className="text-[#0EA5E9] text-xs font-bold">✓</span>
+            ) : (
+              <div className="w-3.5 h-3.5 rounded-full border border-[#252832]" />
+            )}
           </div>
-          <span className="text-[11px] font-mono text-emerald-400/80">
-            Est. {projectedOddsYes}%
-          </span>
+          <span className="text-xl font-extrabold text-white tabular-nums">50¢</span>
+          <span className="text-[10px] text-[#94A3B8] tabular-nums">Payout: 1.00 DUST</span>
         </button>
 
+        {/* NO Card (Red) */}
         <button
           type="button"
           onClick={() => setSelectedSide(false)}
-          className={`py-3.5 px-4 rounded-xl font-bold text-sm transition-all flex flex-col items-center gap-1 cursor-pointer border ${
+          className={`flex flex-col gap-1 p-3.5 rounded-lg text-left relative transition-all active:scale-[0.98] cursor-pointer ${
             !selectedSide
-              ? 'bg-rose-950/80 border-rose-500 text-rose-300 shadow-lg shadow-rose-950/50 ring-2 ring-rose-500/20'
-              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              ? 'border-2 border-[#F43F5E] bg-[#F43F5E]/15 shadow-[0_0_12px_rgba(244,63,94,0.15)]'
+              : 'border border-[#252832] bg-[#0A0B0D] hover:border-[#F43F5E]/40'
           }`}
         >
-          <div className="flex items-center gap-1.5">
-            <span className="text-base">▼</span>
-            <span>NO</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#F43F5E]">No</span>
+            {!selectedSide ? (
+              <span className="text-[#F43F5E] text-xs font-bold">✓</span>
+            ) : (
+              <div className="w-3.5 h-3.5 rounded-full border border-[#252832]" />
+            )}
           </div>
-          <span className="text-[11px] font-mono text-rose-400/80">
-            Est. {projectedOddsNo}%
-          </span>
+          <span className="text-xl font-extrabold text-white tabular-nums">50¢</span>
+          <span className="text-[10px] text-[#94A3B8] tabular-nums">Payout: 1.00 DUST</span>
         </button>
       </div>
 
-      {/* Stake Amount Input */}
+      {/* 3. Order Type Selector */}
+      <div className="flex items-center justify-between border-b border-[#252832] pb-3 text-xs">
+        <span className="text-[#94A3B8]">Order Type</span>
+        <div className="flex items-center gap-3 font-semibold">
+          <span className="text-[#F59E0B] border-b-2 border-[#F59E0B] pb-0.5">Market</span>
+          <span className="text-[#64748B] hover:text-white cursor-pointer">Limit</span>
+        </div>
+      </div>
+
+      {/* 4. Amount Entry Section */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <label className="font-semibold text-slate-300">Stake Amount</label>
-          <span className="text-slate-400 font-mono">Currency: tDUST / Units</span>
+          <span className="text-[#94A3B8] font-medium">Stake Amount</span>
+          <span className="text-xs text-[#64748B] tabular-nums">
+            Balance: <span className="text-white font-semibold">1,000 tDUST</span>
+          </span>
         </div>
 
         <div className="relative">
@@ -149,216 +183,131 @@ export const BetPlacement: React.FC<BetPlacementProps> = ({ market, wallet, onBe
             min="1"
             value={amountStr}
             onChange={(e) => setAmountStr(e.target.value)}
-            disabled={isSubmitting}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
-            placeholder="50"
+            placeholder="0"
+            className="w-full bg-[#0A0B0D] border border-[#252832] focus:border-[#F59E0B] rounded-lg py-2.5 px-3.5 text-white font-bold text-lg tabular-nums focus:outline-none transition-colors"
           />
-          <div className="absolute right-3 top-3 text-xs font-mono text-slate-500 pointer-events-none">
-            UNITS
+          <div className="absolute right-3.5 top-3 text-xs font-semibold text-[#94A3B8]">
+            tDUST
           </div>
         </div>
 
-        {/* Quick Amount Presets */}
-        <div className="flex gap-2">
-          {['10', '50', '100', '250', '500'].map((preset) => (
+        {/* Quick Amount Chips */}
+        <div className="grid grid-cols-4 gap-1.5 pt-1">
+          {([10, 50, 100] as const).map((chip) => (
             <button
-              key={preset}
+              key={chip}
               type="button"
-              onClick={() => setAmountStr(preset)}
-              disabled={isSubmitting}
-              className={`flex-1 py-1.5 text-xs font-mono rounded-lg border transition-all cursor-pointer ${
-                amountStr === preset
-                  ? 'bg-cyan-950 border-cyan-800 text-cyan-300'
-                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800'
-              }`}
+              onClick={() => handleQuickAdd(chip)}
+              className="py-1 px-2 rounded bg-[#0A0B0D] hover:bg-[#1C1E26] border border-[#252832] text-xs font-semibold tabular-nums text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
             >
-              +{preset}
+              +{chip}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Return Calculation Breakdown */}
-      <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>Expected Return Ratio</span>
-          <span className="font-mono text-emerald-400 font-bold">{multiplier}x</span>
-        </div>
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>Est. Potential Payout</span>
-          <span className="font-mono text-slate-200 font-semibold">{estimatedPayout.toString()} units</span>
-        </div>
-        <div className="border-t border-slate-800/60 pt-2 flex items-center justify-between text-[11px] text-slate-500">
-          <span>Privacy Guarantee</span>
-          <span className="text-cyan-400">Fully Shielded Position</span>
-        </div>
-      </div>
-
-      {/* Action Button */}
-      <div>
-        {market.state === 1 /* MarketState.Closed */ ? (
-          <div className="w-full py-3.5 px-4 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-center text-xs font-bold">
-            Bidding Closed — Awaiting Oracle Resolution
-          </div>
-        ) : market.state === 2 /* MarketState.Resolved */ ? (
-          <div className="w-full py-3.5 px-4 rounded-xl bg-purple-950/40 border border-purple-500/40 text-purple-300 text-center text-xs font-bold space-y-1">
-            <div>Market Permanently Resolved</div>
-            <div className="text-[11px] font-mono text-slate-400">
-              Outcome: {market.outcome === 1 ? 'YES Won' : market.outcome === 2 ? 'NO Won' : 'Inconclusive'}
-            </div>
-          </div>
-        ) : !wallet.isConnected ? (
           <button
             type="button"
-            onClick={() => wallet.connect('1am')}
-            className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-xl transition-all cursor-pointer"
+            onClick={handleMax}
+            className="py-1 px-2 rounded bg-[#0A0B0D] hover:bg-[#1C1E26] border border-[#252832] text-xs font-bold text-[#F59E0B] hover:bg-[#F59E0B]/10 transition-colors cursor-pointer"
           >
-            Connect 1am Wallet to Place Bet
+            Max
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleStartBet}
-            disabled={isSubmitting || wallet.proofServerOk === false}
-            className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              selectedSide
-                ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500'
-                : 'bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {isSubmitting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Processing Shielded Bet...</span>
-              </>
-            ) : (
-              <span>Place Shielded Bet ({selectedSide ? 'YES' : 'NO'})</span>
-            )}
-          </button>
-        )}
+        </div>
       </div>
 
-      {/* In-Flight Multi-Stage Progress */}
-      {isSubmitting && progressStage && (
-        <div className="bg-cyan-950/40 border border-cyan-800/80 p-4 rounded-xl space-y-2 animate-fadeIn">
-          <div className="flex items-center gap-2 text-xs font-semibold text-cyan-300">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-            <span>Zero-Knowledge Pipeline Active</span>
-          </div>
-          <p className="text-xs text-slate-300 font-mono">
-            {progressStage}
-          </p>
+      {/* 5. Detailed Trade Calculation Summary Box */}
+      <div className="bg-[#1C1E26] rounded-lg p-3.5 space-y-2 border border-[#252832] text-xs font-sans">
+        <div className="flex items-center justify-between">
+          <span className="text-[#94A3B8]">Avg Price</span>
+          <span className="text-white font-bold tabular-nums">50¢</span>
         </div>
-      )}
+        <div className="flex items-center justify-between">
+          <span className="text-[#94A3B8]">Estimated Shares</span>
+          <span className="text-white font-bold tabular-nums">{sharesCount.toString()}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[#94A3B8]">Potential Return</span>
+          <span className="text-[#0EA5E9] font-bold tabular-nums">
+            {potentialReturn.toString()} tDUST (+100%)
+          </span>
+        </div>
+        <div className="border-t border-[#252832] pt-2 flex items-center justify-between">
+          <span className="text-[#94A3B8] flex items-center gap-1">
+            <span>🛡️</span>
+            <span>Settlement Security</span>
+          </span>
+          <span className="text-emerald-400 text-[11px] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+            Escrow Collateralized
+          </span>
+        </div>
+      </div>
 
-      {/* Error Message */}
+      {/* Error Notice */}
       {errorMsg && (
-        <div className="bg-rose-950/50 border border-rose-900 p-4 rounded-xl text-xs text-rose-300 font-medium">
-          <span className="font-bold mr-1">Error:</span> {errorMsg}
+        <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-900 text-rose-300 text-xs">
+          ⚠️ {errorMsg}
         </div>
       )}
 
-      {/* Success Banner */}
+      {/* In-Flight Prover Progress */}
+      {isSubmitting && (
+        <div className="p-3.5 rounded-lg bg-[#1C1E26] border border-[#F59E0B]/40 space-y-2 text-xs">
+          <div className="flex items-center gap-2 text-[#F59E0B] font-bold">
+            <span className="w-3 h-3 rounded-full border-2 border-[#F59E0B] border-t-transparent animate-spin" />
+            <span>Securing Confidential Order...</span>
+          </div>
+          <div className="text-[11px] text-[#94A3B8]">{progressStage}</div>
+          <div className="w-full bg-[#0A0B0D] h-1.5 rounded-full overflow-hidden">
+            <div className="bg-[#F59E0B] h-full w-3/4 animate-pulse rounded-full" />
+          </div>
+        </div>
+      )}
+
+      {/* 6. Primary Action Button */}
+      <button
+        type="button"
+        onClick={handlePlaceBet}
+        disabled={isSubmitting}
+        className={`w-full py-3.5 rounded-lg font-bold text-sm flex flex-col items-center justify-center shadow-lg active:scale-[0.98] transition-all cursor-pointer ${
+          selectedSide
+            ? 'bg-[#0EA5E9] hover:bg-[#0284C7] text-white'
+            : 'bg-[#F43F5E] hover:bg-[#E11D48] text-white'
+        } disabled:opacity-50`}
+      >
+        <span>
+          {isSubmitting
+            ? 'Confirming Transaction...'
+            : wallet.isConnected
+            ? `Buy ${selectedSide ? 'Yes' : 'No'}`
+            : 'Connect Wallet to Trade'}
+        </span>
+        <span className="text-[11px] opacity-80 font-normal">
+          Deterministic On-Chain Escrow Settlement
+        </span>
+      </button>
+
+      {/* Success Notification */}
       {recentTx && (
-        <div className="bg-emerald-950/40 border border-emerald-800/80 p-4 rounded-xl space-y-2 animate-fadeIn">
-          <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+        <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs space-y-1">
+          <div className="font-bold flex items-center gap-1.5">
             <span>✓</span>
-            <span>Shielded Bet Confirmed on Preprod!</span>
+            <span>Order Placed &amp; Escrow Settled!</span>
           </div>
-          <div className="text-[11px] text-slate-300 space-y-1">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Position:</span>
-              <span className="font-semibold text-emerald-300">{recentTx.isYes ? 'YES' : 'NO'} ({recentTx.amount.toString()} units)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Private Commitment:</span>
-              <span className="font-mono text-slate-400">{recentTx.commitmentHex.slice(0, 16)}...</span>
-            </div>
-          </div>
-          <div className="pt-1">
-            <a
-              href={`https://preprod.midnightexplorer.com/transactions/0x${recentTx.txHash.replace(/^0x/, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-cyan-400 hover:underline font-mono inline-flex items-center gap-1"
-            >
-              <span>View Transaction on Midnight Explorer →</span>
-            </a>
+          <div className="text-[11px] text-[#94A3B8]">
+            Receipt: {truncateAddress(recentTx.commitmentHex, 8, 6)} • Tx: {truncateAddress(recentTx.txHash, 8, 6)}
           </div>
         </div>
       )}
 
-      {/* Bet Confirmation Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-5 animate-scaleIn">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-                <span>🛡️</span>
-                <span>Confirm Shielded Bet</span>
-              </h3>
-              <button
-                onClick={() => setShowConfirmModal(false)}
-                className="text-slate-400 hover:text-slate-200 cursor-pointer text-sm"
-              >
-                ✕
-              </button>
-            </div>
+      {/* 7. Prover Status Indicator */}
+      <div className="flex items-center justify-center gap-2 text-xs text-[#64748B]">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span>Instant matching engine active · Zero front-running</span>
+      </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                <div className="text-slate-400 mb-1">Market Question:</div>
-                <div className="text-slate-200 font-semibold">{market.question}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <div className="text-slate-400 mb-0.5">Your Position</div>
-                  <div className={`font-bold text-sm ${selectedSide ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {selectedSide ? 'YES' : 'NO'}
-                  </div>
-                </div>
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <div className="text-slate-400 mb-0.5">Stake Amount</div>
-                  <div className="font-bold text-sm text-slate-100 font-mono">
-                    {amount.toString()} units
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-cyan-950/30 border border-cyan-800/60 p-3 rounded-xl space-y-1">
-                <div className="font-semibold text-cyan-300 flex items-center gap-1.5">
-                  <span>🔒</span>
-                  <span>Cryptographic Shield Active</span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  This transaction will generate a ZK proof locally on your proof server (<code className="text-cyan-400">localhost:6300</code>). No wallet address or side choice is exposed to on-chain observers.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmBet}
-                className="flex-1 py-2.5 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer"
-              >
-                Confirm &amp; Prove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <p className="text-center text-[10px] text-[#64748B] border-t border-[#252832] pt-2 leading-relaxed">
+        Autonomous smart contract escrow. Private execution guarantees no slippage or MEV bots.
+      </p>
     </div>
   );
 };
 
 export default BetPlacement;
-

@@ -8,27 +8,124 @@
 
 body {
   margin: 0;
-  background-color: #06070c;
-  color: #f1f5f9;
+  background-color: #0A0B0D;
+  color: #F8FAFC;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
 }
 
-/* Custom scrollbars */
+/* Subtle Modern Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090b14;
+  background: #0A0B0D;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 3px;
+  background: #252832;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #373B45;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" on;
+}
+
+/* Prediction Market Card & Button Utilities */
+.poly-card {
+  background-color: #13151A;
+  border: 1px solid #252832;
+  border-radius: 0.75rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.poly-card:hover {
+  border-color: #3E4456;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.65);
+}
+
+.poly-btn-primary {
+  background-color: #F59E0B;
+  color: #0A0B0D;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.poly-btn-primary:hover {
+  background-color: #D97706;
+}
+
+.poly-btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Outcome Buttons: Blue (YES) and Red (NO) as requested */
+.poly-btn-yes {
+  background-color: rgba(14, 165, 233, 0.12);
+  color: #0EA5E9;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 0.5rem;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.poly-btn-yes:hover {
+  background-color: rgba(14, 165, 233, 0.22);
+  border-color: rgba(14, 165, 233, 0.5);
+}
+
+.poly-btn-yes:active {
+  transform: scale(0.98);
+}
+
+.poly-btn-no {
+  background-color: rgba(244, 63, 94, 0.12);
+  color: #F43F5E;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  border-radius: 0.5rem;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.poly-btn-no:hover {
+  background-color: rgba(244, 63, 94, 0.22);
+  border-color: rgba(244, 63, 94, 0.5);
+}
+
+.poly-btn-no:active {
+  transform: scale(0.98);
+}
+
+/* ZK Shielded Accents - Radiant Amber & Gold */
+.zk-pill {
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #FBBF24;
+  border-radius: 9999px;
+}
+
+.zk-glow {
+  box-shadow: 0 0 16px -4px rgba(245, 158, 11, 0.25);
+}
+
+/* Backwards compatibility classes */
+.milled-panel {
+  background-color: #13151A;
+  border: 1px solid #252832;
+}
+
+.tactile-button {
+  transition: all 0.15s ease-in-out;
+}
+.tactile-button:active {
+  transform: scale(0.98);
 }

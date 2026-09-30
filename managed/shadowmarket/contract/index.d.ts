@@ -6,16 +6,16 @@ export enum Outcome { None = 0, Yes = 1, No = 2, Inconclusive = 3 }
 
 export type Market = { id: bigint;
                        creator: Uint8Array;
+                       oraclePublicKey: __compactRuntime.JubjubPoint;
                        question: string;
                        category: string;
                        resolutionSource: string;
                        closeTimestamp: bigint;
                        state: MarketState;
                        outcome: Outcome;
-                       totalStakeYes: bigint;
-                       totalStakeNo: bigint;
                        totalVolume: bigint;
-                       betCounter: bigint
+                       betCounter: bigint;
+                       escrowBalance: bigint
                      };
 
 export type BetData = { marketId: bigint;
@@ -25,12 +25,18 @@ export type BetData = { marketId: bigint;
                         nonce: Uint8Array
                       };
 
+export type Schnorr_SchnorrSignature = { announcement: __compactRuntime.JubjubPoint;
+                                         response: bigint
+                                       };
+
 export type Witnesses<PS> = {
+  getSchnorrReduction(context: __compactRuntime.WitnessContext<Ledger, PS>,
+                      challengeHash_0: bigint): [PS, [bigint, bigint]];
   get_user_secret(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
   get_bet_nonce(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
   get_claimed_bet(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, BetData];
   get_claim_salt(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
-  get_claimed_payout(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
+  get_claim_recipient(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
   get_disclosed_odds(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
   persist_bet_receipt(context: __compactRuntime.WitnessContext<Ledger, PS>,
                       commitment_0: Uint8Array,
@@ -42,6 +48,7 @@ export type Witnesses<PS> = {
 
 export type ImpureCircuits<PS> = {
   createMarket(context: __compactRuntime.CircuitContext<PS>,
+               oraclePk_0: __compactRuntime.JubjubPoint,
                question_0: string,
                category_0: string,
                resolutionSource_0: string,
@@ -54,16 +61,22 @@ export type ImpureCircuits<PS> = {
                    marketId_0: bigint,
                    isYes_0: boolean,
                    amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
-  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
   closeMarket(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, []>;
+  resolveMarketWithOracle(context: __compactRuntime.CircuitContext<PS>,
+                          marketId_0: bigint,
+                          winningOutcome_0: Outcome,
+                          resolutionTime_0: bigint,
+                          oracleSignature_0: Schnorr_SchnorrSignature): __compactRuntime.CircuitResults<PS, []>;
   resolveMarket(context: __compactRuntime.CircuitContext<PS>,
                 marketId_0: bigint,
                 winningOutcome_0: Outcome): __compactRuntime.CircuitResults<PS, []>;
   claimPayout(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type ProvableCircuits<PS> = {
   createMarket(context: __compactRuntime.CircuitContext<PS>,
+               oraclePk_0: __compactRuntime.JubjubPoint,
                question_0: string,
                category_0: string,
                resolutionSource_0: string,
@@ -76,23 +89,29 @@ export type ProvableCircuits<PS> = {
                    marketId_0: bigint,
                    isYes_0: boolean,
                    amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
-  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
   closeMarket(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, []>;
+  resolveMarketWithOracle(context: __compactRuntime.CircuitContext<PS>,
+                          marketId_0: bigint,
+                          winningOutcome_0: Outcome,
+                          resolutionTime_0: bigint,
+                          oracleSignature_0: Schnorr_SchnorrSignature): __compactRuntime.CircuitResults<PS, []>;
   resolveMarket(context: __compactRuntime.CircuitContext<PS>,
                 marketId_0: bigint,
                 winningOutcome_0: Outcome): __compactRuntime.CircuitResults<PS, []>;
   claimPayout(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type PureCircuits = {
   derivePublicKey(secret_0: Uint8Array): Uint8Array;
-  verifyOdds(yesStake_0: bigint, noStake_0: bigint, oddsPercent_0: bigint): boolean;
+  verifyOdds(yesOdds_0: bigint, noOdds_0: bigint): boolean;
 }
 
 export type Circuits<PS> = {
   derivePublicKey(context: __compactRuntime.CircuitContext<PS>,
                   secret_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
   createMarket(context: __compactRuntime.CircuitContext<PS>,
+               oraclePk_0: __compactRuntime.JubjubPoint,
                question_0: string,
                category_0: string,
                resolutionSource_0: string,
@@ -105,16 +124,20 @@ export type Circuits<PS> = {
                    marketId_0: bigint,
                    isYes_0: boolean,
                    amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
-  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
-  verifyOdds(context: __compactRuntime.CircuitContext<PS>,
-             yesStake_0: bigint,
-             noStake_0: bigint,
-             oddsPercent_0: bigint): __compactRuntime.CircuitResults<PS, boolean>;
   closeMarket(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, []>;
+  resolveMarketWithOracle(context: __compactRuntime.CircuitContext<PS>,
+                          marketId_0: bigint,
+                          winningOutcome_0: Outcome,
+                          resolutionTime_0: bigint,
+                          oracleSignature_0: Schnorr_SchnorrSignature): __compactRuntime.CircuitResults<PS, []>;
   resolveMarket(context: __compactRuntime.CircuitContext<PS>,
                 marketId_0: bigint,
                 winningOutcome_0: Outcome): __compactRuntime.CircuitResults<PS, []>;
   claimPayout(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  discloseOdds(context: __compactRuntime.CircuitContext<PS>, marketId_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  verifyOdds(context: __compactRuntime.CircuitContext<PS>,
+             yesOdds_0: bigint,
+             noOdds_0: bigint): __compactRuntime.CircuitResults<PS, boolean>;
 }
 
 export type Ledger = {
@@ -154,6 +177,7 @@ export declare class Contract<PS = any, W extends Witnesses<PS> = Witnesses<PS>>
   constructor(witnesses: W);
   initialState(context: __compactRuntime.ConstructorContext<PS>,
                adminPk_0: Uint8Array,
+               oraclePk_0: __compactRuntime.JubjubPoint,
                initialQuestion_0: string,
                initialCategory_0: string,
                initialResolutionSource_0: string,

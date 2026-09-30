@@ -1,99 +1,113 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { MidnightWalletState } from '../hooks/useMidnight.ts';
-import { loadReceipts } from '../utils/storage.ts';
+import { loadReceipts, type BetReceipt } from '../utils/storage.ts';
 import { getAllMarkets } from '../utils/markets.ts';
 import { executeClaimPayout, type MarketPublicData } from '../utils/contract.ts';
 import { formatDust, truncateAddress } from '../utils/formatters.ts';
-import { MarketState, Outcome, type ShieldedBetReceipt } from '../types/index.ts';
+import { MarketState, Outcome } from '../types/index.ts';
 
 interface PortfolioPageProps {
   wallet: MidnightWalletState;
 }
 
 export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
+  const [dataVersion, setDataVersion] = useState(0);
   const [activeTab, setActiveTab] = useState<'open' | 'history'>('open');
-  const [receipts, setReceipts] = useState<ShieldedBetReceipt[]>([]);
-  const [marketsMap, setMarketsMap] = useState<Map<string, MarketPublicData>>(new Map());
-
-  // Claim in-flight state
   const [claimingReceiptId, setClaimingReceiptId] = useState<string | null>(null);
   const [claimProgressStage, setClaimProgressStage] = useState('');
-  const [claimError, setClaimError] = useState<string | null>(null);
   const [claimSuccess, setClaimSuccess] = useState<{ receiptId: string; amount: bigint; txHash: string } | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
 
   const refreshData = () => {
-    const rawReceipts = Array.from(loadReceipts().values()).sort((a, b) => b.timestamp - a.timestamp);
-    setReceipts(rawReceipts);
+    setDataVersion((v) => v + 1);
+  };
 
-    const allMarkets = getAllMarkets();
+  // Load user receipts from encrypted local witness storage
+  const receipts = useMemo(() => {
+    return Array.from(loadReceipts().values()).sort((a, b) => b.timestamp - a.timestamp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataVersion]);
+
+  // Load all markets to join status and outcomes
+  const allMarkets = useMemo(() => {
+    return getAllMarkets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataVersion]);
+
+  const marketsMap = useMemo(() => {
     const map = new Map<string, MarketPublicData>();
     for (const m of allMarkets) {
       map.set(m.id, m);
     }
-    setMarketsMap(map);
-  };
+    return map;
+  }, [allMarkets]);
 
-  useEffect(() => {
-    refreshData();
-  }, []);
+  // Calculations for portfolio summary metrics
+  const totalWagered = receipts.reduce((acc, r) => acc + r.amount, 0n);
 
-  // Compute Metrics
-  let totalWagered = 0n;
-  let totalClaimed = 0n;
-  let activeBetsCount = 0;
-  let claimableBetsCount = 0;
+  const totalClaimed = receipts
+    .filter((r) => r.claimed)
+    .reduce((acc, r) => acc + (r.claimedPayout || r.amount * 2n), 0n);
 
-  for (const r of receipts) {
-    totalWagered += r.amount;
-    if (r.claimed && r.claimedPayout) {
-      totalClaimed += r.claimedPayout;
-    }
-
-    const m = marketsMap.get(r.marketId);
-    if (!m || m.state !== MarketState.Resolved) {
-      activeBetsCount++;
-    } else {
-      const won = (m.outcome === Outcome.Yes && r.isYes) || (m.outcome === Outcome.No && !r.isYes) || m.outcome === Outcome.Inconclusive;
-      if (won && !r.claimed) {
-        claimableBetsCount++;
-      }
-    }
-  }
-
-  // Filter positions
   const openPositions = receipts.filter((r) => {
-    const m = marketsMap.get(r.marketId);
-    return !m || m.state !== MarketState.Resolved;
+    const market = marketsMap.get(r.marketId);
+    return !market || market.state !== MarketState.Resolved;
   });
 
   const historyPositions = receipts.filter((r) => {
-    const m = marketsMap.get(r.marketId);
-    return m && m.state === MarketState.Resolved;
+    const market = marketsMap.get(r.marketId);
+    return market && market.state === MarketState.Resolved;
   });
 
-  // Calculate estimated payout for a winning receipt
-  const computePotentialPayout = (r: ShieldedBetReceipt, m?: MarketPublicData): bigint => {
-    if (!m) return r.amount * 2n;
-    if (m.outcome === Outcome.Inconclusive) return r.amount;
-    const winningStake = r.isYes ? m.totalStakeYes : m.totalStakeNo;
-    if (winningStake === 0n) return r.amount;
-    return (r.amount * m.totalVolume) / winningStake;
+  const activeBetsCount = openPositions.length;
+
+  const computePotentialPayout = (r: BetReceipt, m?: MarketPublicData): bigint => {
+    if (!m || m.state !== MarketState.Resolved) {
+      return r.amount * 2n; // 1:1 payout on 50¢ fixed prototype odds
+    }
+    if (m.outcome === Outcome.Inconclusive) {
+      return r.amount; // Refund exact principal
+    }
+    const isWinner =
+      (m.outcome === Outcome.Yes && r.isYes) ||
+      (m.outcome === Outcome.No && !r.isYes);
+    return isWinner ? r.amount * 2n : 0n;
   };
 
-  const handleClaimPayout = async (r: ShieldedBetReceipt) => {
-    if (claimingReceiptId) return;
+  // Compute pending claimable sum
+  const claimableWinnings = useMemo(() => {
+    return historyPositions.filter((r) => {
+      if (r.claimed) return false;
+      const m = marketsMap.get(r.marketId);
+      if (!m || m.state !== MarketState.Resolved) return false;
+      return (
+        (m.outcome === Outcome.Yes && r.isYes) ||
+        (m.outcome === Outcome.No && !r.isYes) ||
+        m.outcome === Outcome.Inconclusive
+      );
+    });
+  }, [historyPositions, marketsMap]);
+
+  const claimableBetsCount = claimableWinnings.length;
+  const totalClaimableAmount = claimableWinnings.reduce(
+    (acc, r) => acc + computePotentialPayout(r, marketsMap.get(r.marketId)),
+    0n
+  );
+
+  const handleClaimPayout = async (r: BetReceipt) => {
     if (!wallet.isConnected) {
-      setClaimError('Please connect your wallet to submit the Zero-Knowledge payout claim.');
+      wallet.connect('1am');
       return;
     }
 
-    const m = marketsMap.get(r.marketId);
-    const payout = computePotentialPayout(r, m);
+    const market = marketsMap.get(r.marketId);
+    const payout = computePotentialPayout(r, market);
 
     setClaimingReceiptId(r.id);
+    setClaimSuccess(null);
     setClaimError(null);
-    setClaimProgressStage('Setting up private claim witness...');
+    setClaimProgressStage('Proving private entitlement in ZK...');
 
     try {
       const providers = await wallet.getProviders();
@@ -101,6 +115,7 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
         marketId: BigInt(r.marketId),
         receiptId: r.id,
         payoutAmount: payout,
+        userSecret: wallet.walletSecret || undefined,
         onProgress: (stage) => setClaimProgressStage(stage)
       });
 
@@ -120,105 +135,112 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 font-sans">
+      {/* 1. Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-100">
-              Private Portfolio & Positions
-            </h1>
-            <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Shielded Storage
-            </span>
-          </div>
-          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Client-side decrypted view of your confidential bets. These receipts exist only in your browser's private
-            storage and are never exposed in plaintext on the public ledger.
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Portfolio &amp; Positions
+          </h1>
+          <p className="text-xs sm:text-sm text-[#94A3B8] mt-1">
+            Client-side view of your confidential bets on Midnight Network. Receipts exist only in your browser storage.
           </p>
         </div>
 
-        <Link
-          to="/markets"
-          className="self-start md:self-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors flex items-center gap-2 border border-slate-700"
-        >
-          <span>Explore All Markets</span>
-          <span>→</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={refreshData}
+            className="px-3 py-1.5 bg-[#13151A] hover:bg-[#1C1E26] border border-[#252832] rounded-lg text-xs font-medium text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+          >
+            ↻ Refresh
+          </button>
+          <Link
+            to="/markets"
+            className="px-4 py-2 bg-[#F59E0B] hover:bg-[#D97706] text-[#0A0B0D] font-bold text-xs rounded-lg transition-colors shadow-sm"
+          >
+            Explore Markets →
+          </Link>
+        </div>
       </div>
 
       {/* Disconnected Notice */}
       {!wallet.isConnected && (
-        <div className="p-6 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🔒</span>
-            <div>
-              <div className="text-sm font-bold text-amber-300">Wallet Disconnected</div>
-              <div className="text-xs text-slate-400">
-                Connect your Midnight wallet (1am or Lace) to execute shielded payout claims on Midnight Preprod.
-              </div>
-            </div>
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-amber-300">
+            <span className="text-base">⚠️</span>
+            <span>Wallet disconnected. Connect your Midnight wallet to claim your shielded winnings on Preprod.</span>
           </div>
           <button
             onClick={() => wallet.connect('1am')}
-            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition-all whitespace-nowrap"
+            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs whitespace-nowrap cursor-pointer transition-colors"
           >
-            Connect 1am Wallet
+            Connect Wallet
           </button>
         </div>
       )}
 
-      {/* Metric Cards */}
+      {/* 2. Hero Portfolio Summary Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <div className="text-xs font-mono uppercase text-slate-500">Total Wagered</div>
-          <div className="text-xl font-mono font-bold text-slate-100 flex items-baseline gap-1.5">
-            <span>{formatDust(totalWagered)}</span>
-            <span className="text-xs text-slate-500 font-sans font-normal">tDUST</span>
+        {/* Total Portfolio Value */}
+        <div className="bg-[#13151A] border border-[#252832] rounded-xl p-4 sm:p-5 space-y-1">
+          <div className="text-xs text-[#94A3B8] font-medium">Total Shielded Stake</div>
+          <div className="text-2xl font-extrabold text-white tabular-nums">
+            {formatDust(totalWagered)} <span className="text-xs font-normal text-[#94A3B8]">tDUST</span>
           </div>
-          <div className="text-[11px] text-slate-500">{receipts.length} total shielded bets</div>
+          <div className="text-[11px] text-[#F59E0B] font-semibold flex items-center gap-1">
+            <span>●</span>
+            <span>{receipts.length} Active Positions</span>
+          </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <div className="text-xs font-mono uppercase text-slate-500">Open Positions</div>
-          <div className="text-xl font-mono font-bold text-cyan-400">
+        {/* Active Pools */}
+        <div className="bg-[#13151A] border border-[#252832] rounded-xl p-4 sm:p-5 space-y-1">
+          <div className="text-xs text-[#94A3B8] font-medium">Active Positions</div>
+          <div className="text-2xl font-extrabold text-[#F59E0B] tabular-nums">
             {activeBetsCount}
           </div>
-          <div className="text-[11px] text-slate-500">Markets pending resolution</div>
+          <div className="text-[11px] text-[#94A3B8]">Awaiting resolution</div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <div className="text-xs font-mono uppercase text-slate-500">Claimable Wins</div>
-          <div className={`text-xl font-mono font-bold ${claimableBetsCount > 0 ? 'text-amber-400 animate-pulse' : 'text-slate-400'}`}>
-            {claimableBetsCount}
+        {/* Claimable Winnings */}
+        <div className={`bg-[#13151A] border rounded-xl p-4 sm:p-5 space-y-1 ${
+          claimableBetsCount > 0 ? 'border-[#F59E0B]/50 shadow-md shadow-[#F59E0B]/10' : 'border-[#252832]'
+        }`}>
+          <div className="text-xs text-[#94A3B8] font-medium">Claimable Winnings</div>
+          <div className={`text-2xl font-extrabold tabular-nums ${
+            claimableBetsCount > 0 ? 'text-[#F59E0B] animate-pulse' : 'text-[#94A3B8]'
+          }`}>
+            {claimableBetsCount > 0 ? `+${formatDust(totalClaimableAmount)}` : '0'}{' '}
+            <span className="text-xs font-normal text-[#94A3B8]">tDUST</span>
           </div>
-          <div className="text-[11px] text-slate-500">Awaiting ZK nullifier claim</div>
+          <div className="text-[11px] text-[#94A3B8]">
+            {claimableBetsCount} winning position{claimableBetsCount === 1 ? '' : 's'} ready
+          </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <div className="text-xs font-mono uppercase text-slate-500">Total Claimed</div>
-          <div className="text-xl font-mono font-bold text-emerald-400 flex items-baseline gap-1.5">
-            <span>{formatDust(totalClaimed)}</span>
-            <span className="text-xs text-emerald-500/70 font-sans font-normal">tDUST</span>
+        {/* Settled Disbursements */}
+        <div className="bg-[#13151A] border border-[#252832] rounded-xl p-4 sm:p-5 space-y-1">
+          <div className="text-xs text-[#94A3B8] font-medium">Total Claimed</div>
+          <div className="text-2xl font-extrabold text-white tabular-nums">
+            {formatDust(totalClaimed)} <span className="text-xs font-normal text-[#94A3B8]">tDUST</span>
           </div>
-          <div className="text-[11px] text-emerald-500/80">Disbursed on Preprod</div>
+          <div className="text-[11px] text-emerald-400">Settled on-chain</div>
         </div>
       </div>
 
       {/* Claim Success Notification */}
       {claimSuccess && (
-        <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 text-xs flex items-center justify-between gap-4">
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center justify-between gap-4 font-sans">
           <div className="flex items-center gap-2">
             <span>✅</span>
             <span>
-              Claimed <strong>{formatDust(claimSuccess.amount)} tDUST</strong> via zero-knowledge proof! Tx:{' '}
-              <code className="text-emerald-200">{truncateAddress(claimSuccess.txHash, 10, 8)}</code>
+              Claimed <strong>{formatDust(claimSuccess.amount)} tDUST</strong> successfully! Tx:{' '}
+              <code className="text-white underline">{truncateAddress(claimSuccess.txHash, 8, 6)}</code>
             </span>
           </div>
           <button
             onClick={() => setClaimSuccess(null)}
-            className="text-slate-400 hover:text-slate-200 text-xs font-bold"
+            className="text-[#94A3B8] hover:text-white font-bold cursor-pointer"
           >
             ✕
           </button>
@@ -227,131 +249,125 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
 
       {/* Claim Error Alert */}
       {claimError && (
-        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/50 text-rose-300 text-xs flex items-center justify-between gap-4">
+        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-900 text-rose-300 text-xs flex items-center justify-between gap-4 font-sans">
           <div>⚠️ {claimError}</div>
-          <button onClick={() => setClaimError(null)} className="text-slate-400 hover:text-slate-200 text-xs font-bold">
+          <button onClick={() => setClaimError(null)} className="text-[#94A3B8] hover:text-white font-bold cursor-pointer">
             ✕
           </button>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setActiveTab('open')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'open'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Open Positions ({openPositions.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'history'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            History & Claims ({historyPositions.length})
-          </button>
-        </div>
-
+      {/* 3. Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-[#252832] pb-3 text-xs font-semibold">
         <button
-          onClick={refreshData}
-          className="text-xs font-mono text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors"
+          type="button"
+          onClick={() => setActiveTab('open')}
+          className={`px-4 py-2 rounded-lg transition-colors cursor-pointer ${
+            activeTab === 'open'
+              ? 'bg-[#1C1E26] text-white border border-[#252832]'
+              : 'text-[#94A3B8] hover:text-white'
+          }`}
         >
-          <span>↻</span>
-          <span>Refresh</span>
+          Active Positions ({openPositions.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'history'
+              ? 'bg-[#1C1E26] text-white border border-[#252832]'
+              : 'text-[#94A3B8] hover:text-white'
+          }`}
+        >
+          <span>Resolved &amp; Claims ({historyPositions.length})</span>
+          {claimableBetsCount > 0 && (
+            <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-ping" />
+          )}
         </button>
       </div>
 
-      {/* TAB CONTENT: Open Positions */}
+      {/* 4. Positions Table */}
       {activeTab === 'open' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {openPositions.length === 0 ? (
-            <div className="py-16 text-center rounded-2xl bg-slate-900/30 border border-slate-800/80 space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center text-xl mx-auto">
-                🎲
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-200">No active positions found</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  You have not placed any shielded bets on currently open prediction markets.
-                </p>
-              </div>
+            <div className="text-center py-16 bg-[#13151A] border border-[#252832] rounded-xl space-y-3">
+              <div className="text-3xl">🎫</div>
+              <h3 className="font-bold text-white text-base">No active positions</h3>
+              <p className="text-xs text-[#94A3B8]">
+                You have not placed any shielded bets on currently open prediction markets.
+              </p>
               <Link
                 to="/markets"
-                className="inline-block px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg transition-all"
+                className="inline-block px-4 py-2 rounded-lg bg-[#F59E0B] hover:bg-[#D97706] text-[#0A0B0D] font-bold text-xs transition-colors"
               >
-                Browse Markets
+                Browse Markets →
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-3">
               {openPositions.map((receipt) => {
                 const market = marketsMap.get(receipt.marketId);
                 const question = market?.question || receipt.marketQuestion || `Market #${receipt.marketId}`;
                 const dateStr = new Date(receipt.timestamp).toLocaleDateString(undefined, {
                   month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                  day: 'numeric'
                 });
 
                 return (
                   <div
                     key={receipt.id}
-                    className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    className="p-4 sm:p-5 rounded-xl bg-[#13151A] border border-[#252832] hover:border-[#F59E0B]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
                   >
-                    <div className="space-y-2 max-w-xl">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-slate-400">
-                          Market #{receipt.marketId}
+                    <div className="space-y-1.5 max-w-xl">
+                      <div className="flex items-center gap-2 text-[11px] text-[#94A3B8]">
+                        <span className="px-2 py-0.5 rounded bg-[#1C1E26] text-white">
+                          #{receipt.marketId}
                         </span>
                         {market?.category && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800/60 text-slate-400">
+                          <span className="px-2 py-0.5 rounded bg-[#1C1E26] text-[#94A3B8]">
                             {market.category}
                           </span>
                         )}
-                        <span className="text-[10px] text-slate-500 font-mono">{dateStr}</span>
+                        <span>{dateStr}</span>
+                        <span className="text-emerald-400 flex items-center gap-1 font-medium">
+                          <span>🛡️</span>
+                          <span>Private</span>
+                        </span>
                       </div>
-                      <h4 className="text-sm font-bold text-slate-100 hover:text-cyan-300 transition-colors">
+
+                      <h4 className="font-bold text-white text-sm hover:text-[#F59E0B] transition-colors">
                         <Link to={`/markets/${receipt.marketId}`}>{question}</Link>
                       </h4>
-                      <div className="flex items-center gap-3 text-xs font-mono">
-                        <span className="text-slate-500">Commitment:</span>
-                        <span className="text-slate-400">{truncateAddress(receipt.commitmentHex, 8, 6)}</span>
+
+                      <div className="text-[11px] text-[#64748B]">
+                        Receipt: {truncateAddress(receipt.commitmentHex, 8, 6)}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between md:justify-end gap-6">
+                    <div className="flex items-center justify-between md:justify-end gap-6 pt-2 md:pt-0 border-t md:border-t-0 border-[#252832]">
                       <div className="text-right">
-                        <div className="text-xs text-slate-500 uppercase font-mono">Position</div>
+                        <div className="text-[11px] text-[#94A3B8]">Position</div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span
-                            className={`px-2.5 py-0.5 rounded-md text-xs font-black uppercase ${
+                            className={`px-2 py-0.5 rounded font-bold uppercase ${
                               receipt.isYes
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                                ? 'bg-[#0EA5E9]/15 text-[#0EA5E9] border border-[#0EA5E9]/30'
+                                : 'bg-[#F43F5E]/15 text-[#F43F5E] border border-[#F43F5E]/30'
                             }`}
                           >
                             {receipt.isYes ? 'YES' : 'NO'}
                           </span>
-                          <span className="text-base font-bold font-mono text-slate-100">
-                            {formatDust(receipt.amount)} <span className="text-xs font-normal text-slate-500">tDUST</span>
+                          <span className="text-sm font-bold text-white tabular-nums">
+                            {formatDust(receipt.amount)} tDUST
                           </span>
                         </div>
                       </div>
 
                       <Link
                         to={`/markets/${receipt.marketId}`}
-                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+                        className="px-3.5 py-1.5 rounded-lg bg-[#1C1E26] hover:bg-[#252832] border border-[#252832] text-white text-xs font-semibold transition-colors"
                       >
-                        View Market
+                        Trade →
                       </Link>
                     </div>
                   </div>
@@ -362,23 +378,19 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
         </div>
       )}
 
-      {/* TAB CONTENT: History & Claims */}
+      {/* History & Claims Tab */}
       {activeTab === 'history' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {historyPositions.length === 0 ? (
-            <div className="py-16 text-center rounded-2xl bg-slate-900/30 border border-slate-800/80 space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center text-xl mx-auto">
-                📜
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-200">No resolved positions yet</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  When prediction markets close and resolve, your past winning bets will appear here for payout claims.
-                </p>
-              </div>
+            <div className="text-center py-16 bg-[#13151A] border border-[#252832] rounded-xl space-y-3">
+              <div className="text-3xl">📜</div>
+              <h3 className="font-bold text-white text-base">No resolved positions</h3>
+              <p className="text-xs text-[#94A3B8]">
+                When markets close and resolve, your past bets will appear here for payout claims.
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-3">
               {historyPositions.map((receipt) => {
                 const market = marketsMap.get(receipt.marketId);
                 const question = market?.question || receipt.marketQuestion || `Market #${receipt.marketId}`;
@@ -399,56 +411,60 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
                 return (
                   <div
                     key={receipt.id}
-                    className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                      isWon
-                        ? 'bg-slate-900/80 border-emerald-500/30 shadow-lg shadow-emerald-950/10'
-                        : 'bg-slate-900/40 border-slate-800/80 opacity-80'
+                    className={`p-4 sm:p-5 rounded-xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs ${
+                      isWon && !receipt.claimed
+                        ? 'bg-[#13151A] border-[#F59E0B]/50 shadow-md'
+                        : 'bg-[#13151A] border-[#252832]'
                     }`}
                   >
-                    <div className="space-y-2 max-w-xl">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-slate-400">
-                          Market #{receipt.marketId}
+                    <div className="space-y-1.5 max-w-xl">
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="px-2 py-0.5 rounded bg-[#1C1E26] text-white tabular-nums font-semibold">
+                          #{receipt.marketId}
                         </span>
                         <span
-                          className={`text-[10px] font-mono px-2 py-0.5 rounded-md font-bold uppercase ${
+                          className={`px-2 py-0.5 rounded font-bold uppercase ${
                             outcome === Outcome.Yes
-                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                              ? 'bg-[#0EA5E9]/15 text-[#0EA5E9]'
                               : outcome === Outcome.No
-                              ? 'bg-rose-950 text-rose-400 border border-rose-800'
-                              : 'bg-slate-800 text-slate-300'
+                              ? 'bg-[#F43F5E]/15 text-[#F43F5E]'
+                              : 'bg-[#1C1E26] text-white'
                           }`}
                         >
                           Outcome: {outcome === Outcome.Yes ? 'YES Won' : outcome === Outcome.No ? 'NO Won' : 'Inconclusive'}
                         </span>
+                        {isWon && !receipt.claimed && (
+                          <span className="px-2 py-0.5 rounded bg-[#F59E0B] text-[#0A0B0D] font-bold text-[10px] animate-pulse">
+                            CLAIMABLE
+                          </span>
+                        )}
                       </div>
-                      <h4 className="text-sm font-bold text-slate-100 hover:text-cyan-300 transition-colors">
+
+                      <h4 className="font-bold text-white text-sm hover:text-[#F59E0B] transition-colors">
                         <Link to={`/markets/${receipt.marketId}`}>{question}</Link>
                       </h4>
-                      <div className="flex items-center gap-3 text-xs font-mono">
-                        <span className="text-slate-500">My Bet:</span>
-                        <span className={receipt.isYes ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                          {receipt.isYes ? 'YES' : 'NO'} ({formatDust(receipt.amount)} tDUST)
-                        </span>
+
+                      <div className="flex items-center gap-3 text-[11px] text-[#64748B]">
+                        <span>My Stake: {receipt.isYes ? 'YES' : 'NO'} (<span className="tabular-nums font-medium text-white">{formatDust(receipt.amount)}</span> tDUST)</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between md:justify-end gap-6">
+                    <div className="flex items-center justify-between md:justify-end gap-6 pt-2 md:pt-0 border-t md:border-t-0 border-[#252832]">
                       <div className="text-right">
-                        <div className="text-xs text-slate-500 uppercase font-mono">
+                        <div className="text-[11px] text-[#94A3B8]">
                           {receipt.claimed ? 'Claimed Payout' : isWon ? 'Claimable Payout' : 'Result'}
                         </div>
-                        <div className="text-base font-bold font-mono">
+                        <div className="text-sm font-bold tabular-nums">
                           {receipt.claimed ? (
-                            <span className="text-emerald-400">
+                            <span className="text-[#0EA5E9]">
                               +{formatDust(receipt.claimedPayout || potentialPayout)} tDUST
                             </span>
                           ) : isWon ? (
-                            <span className="text-amber-400 font-black animate-pulse">
+                            <span className="text-[#0EA5E9] font-extrabold">
                               +{formatDust(potentialPayout)} tDUST
                             </span>
                           ) : (
-                            <span className="text-slate-500">Lost</span>
+                            <span className="text-[#64748B]">Lost</span>
                           )}
                         </div>
                       </div>
@@ -458,21 +474,21 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
                         <button
                           onClick={() => handleClaimPayout(receipt)}
                           disabled={isClaiming || !wallet.isConnected}
-                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 whitespace-nowrap"
+                          className="px-4 py-2 rounded-lg bg-[#F59E0B] hover:bg-[#D97706] text-[#0A0B0D] font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 whitespace-nowrap cursor-pointer"
                         >
-                          {isClaiming ? claimProgressStage || 'Generating ZK Proof...' : 'Claim Payout →'}
+                          {isClaiming ? claimProgressStage || 'Proving...' : 'Claim Payout →'}
                         </button>
                       )}
 
                       {receipt.claimed && (
-                        <span className="px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-600/40 text-emerald-400 font-bold text-xs flex items-center gap-1.5">
+                        <span className="px-2.5 py-1 rounded-lg bg-[#0EA5E9]/15 text-[#0EA5E9] font-bold text-xs flex items-center gap-1">
                           <span>✓</span>
                           <span>Claimed</span>
                         </span>
                       )}
 
                       {isLost && (
-                        <span className="text-xs font-mono text-slate-600">Settled</span>
+                        <span className="text-xs text-[#64748B]">Settled</span>
                       )}
                     </div>
                   </div>
@@ -482,6 +498,16 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ wallet }) => {
           )}
         </div>
       )}
+
+      {/* 5. Privacy Protocol Note */}
+      <div className="p-4 rounded-xl bg-[#13151A] border border-[#252832] flex items-center gap-3 text-xs text-[#94A3B8]">
+        <span className="text-lg">🔒</span>
+        <div>
+          <strong className="text-white">Confidential Portfolio:</strong> Your position sizes and order receipts are stored client-side with zero-knowledge cryptographic privacy. Only your wallet holds the keys to view or redeem settled payouts.
+        </div>
+      </div>
     </div>
   );
 };
+
+export default PortfolioPage;

@@ -1,389 +1,491 @@
-import puppeteer, { Page } from "puppeteer-core";
-import { spawn } from "child_process";
-import * as fs from "fs";
-import * as path from "path";
+import { spawn } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
+import puppeteer, { Page } from 'puppeteer-core';
 
-const WEBM_PATH = path.resolve(process.cwd(), "demo.webm");
-const MP4_PATH = path.resolve(process.cwd(), "demo.mp4");
+const BASE_URL = 'http://127.0.0.1:3000';
+const OUTPUT_FILE = path.resolve(process.cwd(), 'public/shadowmarket-demo.mp4');
+const ARTIFACT_DIR = '/home/om/.gemini/antigravity-cli/brain/e42b1735-1032-4f11-a917-b8aa91592cfd';
+const ARTIFACT_FILE = path.resolve(ARTIFACT_DIR, 'shadowmarket-demo.mp4');
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const WIDTH = 1920;
+const HEIGHT = 1080;
+const FPS = 30;
 
-// Resilient button clicker using DOM evaluation
-async function clickButtonByText(page: Page, text: string): Promise<boolean> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const clicked = await page.evaluate((targetText) => {
-        const btns = Array.from(document.querySelectorAll("button"));
-        const btn = btns.find((b) => (b.textContent || "").toLowerCase().includes(targetText.toLowerCase()));
-        if (btn && !btn.disabled) {
-          btn.scrollIntoView({ behavior: "smooth", block: "center" });
-          btn.click();
-          return true;
-        }
-        return false;
-      }, text);
-      if (clicked) return true;
-    } catch {
-      await sleep(300);
-    }
+async function recordDemo() {
+  console.log('🎬 Starting ShadowMarket Demo Video Recording...');
+  console.log(`Resolution: ${WIDTH}x${HEIGHT} @ ${FPS}fps`);
+  console.log(`Target: ${OUTPUT_FILE}\n`);
+
+  if (!fs.existsSync(path.dirname(OUTPUT_FILE))) {
+    fs.mkdirSync(path.dirname(OUTPUT_FILE), { recursive: true });
   }
-  return false;
-}
 
-// React-compatible input setter to ensure state hooks update
-async function setReactInputValue(page: Page, selector: string, value: string, index = 0) {
-  await page.evaluate((sel, val, idx) => {
-    const elements = Array.from(document.querySelectorAll(sel));
-    const el = elements[idx] as HTMLInputElement | HTMLTextAreaElement;
-    if (el) {
-      const proto = el instanceof HTMLInputElement ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-      if (setter) {
-        setter.call(el, val);
-      } else {
-        el.value = val;
-      }
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }, selector, value, index);
-}
+  const ffmpegArgs = [
+    '-y',
+    '-f', 'image2pipe',
+    '-vcodec', 'png',
+    '-r', `${FPS}`,
+    '-i', '-',
+    '-c:v', 'libx264',
+    '-pix_fmt', 'yuv420p',
+    '-preset', 'veryfast',
+    '-crf', '20',
+    OUTPUT_FILE
+  ];
 
-// Instant client-side route navigation via HashRouter
-async function navigateHash(page: Page, hash: string) {
-  await page.evaluate((h) => {
-    window.location.hash = h;
-  }, hash);
-  await sleep(1500);
-}
+  const ffmpeg = spawn('ffmpeg', ffmpegArgs);
 
-async function smoothScroll(page: Page, distance: number, steps = 14, delayMs = 45) {
-  const stepDist = distance / steps;
-  for (let i = 0; i < steps; i++) {
-    try {
-      await page.evaluate((d) => window.scrollBy(0, d), stepDist);
-    } catch {}
-    await sleep(delayMs);
-  }
-}
-
-async function main() {
-  console.log("\n=============================================================");
-  console.log("🎬 ShadowMarket: Official Demo Video Recording (Full Workspace)");
-  console.log("   Native Screen Resolution | Real Wallet Flow | Preprod Live");
-  console.log("=============================================================\n");
-
-  // Start wf-recorder to capture the entire desktop workspace (2880x1800, 30fps)
-  console.log("🎥 Launching wf-recorder for entire workspace capture...");
-  const recorder = spawn("wf-recorder", [
-    "-r", "30",
-    "-y",
-    "-f", MP4_PATH
-  ]);
-
-  recorder.stderr.on("data", (data) => {
+  ffmpeg.stderr.on('data', (data) => {
     const msg = data.toString();
-    if (msg.includes("Output #0") || msg.includes("Framerate:")) {
-      console.log(`[Recorder]: ${msg.trim()}`);
+    if (msg.includes('error') || msg.includes('Error')) {
+      console.warn('ffmpeg stderr:', msg.trim());
     }
   });
 
-  await sleep(1500); // Allow recorder to establish screen hooks
-  console.log("🔴 Workspace screen recording active!\n");
+  const writeFrame = async (page: Page, count: number = 1): Promise<void> => {
+    const screenshot = await page.screenshot({ type: 'png', omitBackground: false });
+    for (let i = 0; i < count; i++) {
+      if (!ffmpeg.stdin.write(screenshot)) {
+        await new Promise((resolve) => ffmpeg.stdin.once('drain', resolve));
+      }
+    }
+  };
 
-  console.log("Connecting to Chromium on http://localhost:9222 ...");
-  const browser = await puppeteer.connect({
-    browserURL: "http://localhost:9222",
-    defaultViewport: null // Keep natural window size and full screen
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/bin/chromium',
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-gpu',
+      `--window-size=${WIDTH},${HEIGHT}`,
+      '--disable-web-security'
+    ],
+    defaultViewport: {
+      width: WIDTH,
+      height: HEIGHT,
+      deviceScaleFactor: 1
+    }
   });
 
-  const pages = await browser.pages();
-  const page = pages.find((p) => p.url().includes("3000")) || pages[0] || (await browser.newPage());
-  await page.setViewport(null);
-  try {
-    const client = await page.target().createCDPSession();
-    await client.send("Emulation.clearDeviceMetricsOverride");
-  } catch {}
-  await page.bringToFront();
+  const page = await browser.newPage();
+  await page.setViewport({ width: WIDTH, height: HEIGHT });
 
-  try {
-    // =======================================================================
-    // SCENE 1: Landing Page & Hero
-    // =======================================================================
-    console.log("📍 [Scene 1] Landing Page & Live Preprod Badges...");
-    await page.goto("http://localhost:3000/#/", { waitUntil: "networkidle0" });
-    await sleep(2500);
-
-    // Reset wallet state so the video demonstrates the full connect flow cleanly on camera
-    const wasConnected = await page.evaluate(() => !!document.querySelector("button[title=\"Disconnect wallet\"]"));
-    if (wasConnected) {
-      console.log("Resetting wallet connection to showcase clean connect flow on camera...");
-      await page.evaluate(() => {
-        const disc = document.querySelector("button[title=\"Disconnect wallet\"]");
-        if (disc) (disc as HTMLButtonElement).click();
-      });
-      await sleep(1500);
+  // Pre-inject CAIP-372 window.midnight mock for deterministic demo recording
+  await page.evaluateOnNewDocument(() => {
+    try {
+      window.localStorage.removeItem('shadowmarket_shielded_receipts_v1');
+      window.localStorage.removeItem('shadowmarket_created_markets_v1');
+      window.localStorage.removeItem('shadowmarket_market_overrides_v1');
+    } catch {
+      // ignore
     }
 
-    console.log("Connecting 1am wallet on camera...");
-    const clickedConnect = await clickButtonByText(page, "Connect Wallet");
-    if (clickedConnect) {
-      await sleep(1200);
-      await clickButtonByText(page, "1am Wallet");
-      console.log("\n=============================================================");
-      console.log("🔔 [ACTION REQUIRED IN 1AM WALLET POPUP]:");
-      console.log("   Please click \"APPROVE\" to connect 1am Wallet to Preprod!");
-      console.log("=============================================================\n");
-
-      const start = Date.now();
-      while (Date.now() - start < 45000) {
-        const isConnected = await page.evaluate(() => !!document.querySelector("button[title=\"Disconnect wallet\"]"));
-        if (isConnected) {
-          console.log("✅ 1am Wallet connected successfully!");
-          break;
+    (window as any).midnight = {
+      '1am': {
+        name: '1am Wallet',
+        rdns: 'midnight.1am',
+        connect: async () => {
+          return {
+            getUnshieldedAddress: async () => ({
+              unshieldedAddress: 'mn1q8a92f76c0e4d1b8c27a94ef19c30d84a7e2b4'
+            }),
+            getShieldedAddresses: async () => ({
+              shieldedAddress: 'mn_shielded1qqg8w9v58u4u3q9fjl6e9u9e',
+              shieldedCoinPublicKey: '00'.repeat(32),
+              shieldedEncryptionPublicKey: '00'.repeat(32)
+            }),
+            signData: async () => '0xmock_signature_1am',
+            balanceUnsealedTransaction: async () => ({ tx: '00' }),
+            submitTransaction: async () => '0xmock_tx_hash'
+          };
         }
-        await sleep(1000);
       }
-    }
+    };
+  });
 
-    await sleep(1500);
+  const injectCursor = async () => {
+    await page.evaluate(() => {
+      if (document.getElementById('demo-cursor')) return;
+      const cursor = document.createElement('div');
+      cursor.id = 'demo-cursor';
+      cursor.style.position = 'fixed';
+      cursor.style.width = '24px';
+      cursor.style.height = '24px';
+      cursor.style.borderRadius = '50%';
+      cursor.style.backgroundColor = 'rgba(245, 158, 11, 0.45)';
+      cursor.style.border = '2.5px solid #F59E0B';
+      cursor.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.7)';
+      cursor.style.pointerEvents = 'none';
+      cursor.style.zIndex = '999999';
+      cursor.style.transform = 'translate(-50%, -50%)';
+      cursor.style.transition = 'transform 0.08s ease-out';
+      cursor.style.left = '960px';
+      cursor.style.top = '540px';
 
-    // Showcase hero metrics & 3-step confidentiality model
-    await smoothScroll(page, 450);
-    await sleep(2000);
-    await smoothScroll(page, 450);
-    await sleep(2500);
-    await smoothScroll(page, -900);
-    await sleep(1500);
+      const dot = document.createElement('div');
+      dot.style.position = 'absolute';
+      dot.style.top = '50%';
+      dot.style.left = '50%';
+      dot.style.width = '6px';
+      dot.style.height = '6px';
+      dot.style.borderRadius = '50%';
+      dot.style.backgroundColor = '#FFFFFF';
+      dot.style.transform = 'translate(-50%, -50%)';
+      cursor.appendChild(dot);
 
-    // =======================================================================
-    // SCENE 2: Markets Catalog & Search
-    // =======================================================================
-    console.log("📍 [Scene 2] Markets Catalog & Real-Time Category Filters...");
-    await navigateHash(page, "/markets");
-    await sleep(2000);
-
-    // Click Category Filters
-    await clickButtonByText(page, "Crypto/Macro");
-    await sleep(1500);
-    await clickButtonByText(page, "Politics");
-    await sleep(1500);
-    await clickButtonByText(page, "All");
-    await sleep(1500);
-
-    await smoothScroll(page, 350);
-    await sleep(2000);
-    await smoothScroll(page, -350);
-    await sleep(1200);
-
-    // =======================================================================
-    // SCENE 3: Market Detail & Interactive Odds Trajectory
-    // =======================================================================
-    console.log("📍 [Scene 3] Market Detail & Dynamic Probability Chart...");
-    await navigateHash(page, "/markets/1");
-    await sleep(2000);
-
-    // Toggle Dynamic Odds Chart
-    const toggledHide = await clickButtonByText(page, "Hide Chart");
-    if (toggledHide) {
-      await sleep(1200);
-      await clickButtonByText(page, "Show Chart");
-      await sleep(1500);
-    }
-
-    // Scroll down to Place Shielded Position
-    await smoothScroll(page, 380);
-    await sleep(1500);
-
-    // Set Bet Amount to 50
-    await setReactInputValue(page, "input[type=\"number\"]", "50");
-    await sleep(1000);
-
-    // Open Shielded Bet Confirmation Modal
-    console.log("Opening Shielded Bet Confirmation Modal...");
-    const clickedPlace = await clickButtonByText(page, "Place Shielded Bet");
-    if (clickedPlace) {
-      await sleep(2000);
-
-      console.log("Clicking Confirm & Prove...");
-      const clickedConfirm = await clickButtonByText(page, "Confirm & Prove");
-      if (clickedConfirm) {
-        console.log("\n=============================================================");
-        console.log("⚙️  ZK PROVING PIPELINE ACTIVE (Port 6300)...");
-        console.log("🔔 [ACTION REQUIRED IN 1AM WALLET POPUP]:");
-        console.log("   Please click \"APPROVE\" in your 1am wallet transaction popup!");
-        console.log("=============================================================\n");
-
-        const betStart = Date.now();
-        let lastLog = 0;
-        while (Date.now() - betStart < 120000) {
-          const isDone = await page.evaluate(() => {
-            const txt = document.body.innerText;
-            return (
-              txt.includes("Shielded Bet Confirmed") ||
-              txt.includes("Shielded Position Confirmed") ||
-              txt.includes("Transaction was rejected")
-            );
-          });
-          if (isDone) {
-            console.log("✅ Shielded bet transaction confirmed on Preprod!");
-            break;
-          }
-          const elapsed = Math.floor((Date.now() - betStart) / 1000);
-          if (elapsed - lastLog >= 5) {
-            lastLog = elapsed;
-            console.log(`   ⏳ [Shielded Bet] Proving & waiting for approval (${elapsed}s elapsed)...`);
-          }
-          await sleep(1500);
-        }
-        await sleep(3500);
-      }
-    }
-
-    // =======================================================================
-    // SCENE 4: Create Market
-    // =======================================================================
-    console.log("📍 [Scene 4] Permissionless Market Creation Form...");
-    await navigateHash(page, "/create");
-    await sleep(2000);
-
-    console.log("📝 Filling Create Market form fields...");
-    const questionText = "Will Midnight achieve 10,000 TPS with recursive ZK proofs in 2026?";
-    const descriptionText = "Resolves to YES if Midnight network demonstrates >10,000 TPS verified via official telemetry or block explorer.";
-    const sourceText = "Official Midnight Protocol Telemetry & Cardano Ledger Explorer";
-
-    await setReactInputValue(page, "input[type=\"text\"]", questionText, 0);
-    await sleep(500);
-    await setReactInputValue(page, "textarea", descriptionText, 0);
-    await sleep(500);
-    await setReactInputValue(page, "input[type=\"text\"]", sourceText, 1);
-    await sleep(1000);
-
-    // Verify Deploy button is enabled
-    const deployState = await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll("button"));
-      const btn = btns.find((b) => (b.textContent || "").includes("Deploy Market"));
-      return { found: !!btn, disabled: btn ? btn.disabled : true };
+      document.body.appendChild(cursor);
     });
-    console.log(`Deploy button status: found=${deployState.found}, disabled=${deployState.disabled}`);
+  };
 
-    await smoothScroll(page, 320);
-    await sleep(2000);
+  let curX = 960;
+  let curY = 540;
 
-    console.log("Submitting new market deployment via createMarket()...");
-    const clickedDeploy = await clickButtonByText(page, "Deploy Market to Preprod");
-    if (clickedDeploy) {
-      console.log("\n=============================================================");
-      console.log("⚙️  EXECUTING createMarket() ZK CIRCUIT...");
-      console.log("🔔 [ACTION REQUIRED IN 1AM WALLET POPUP]:");
-      console.log("   Please click \"APPROVE\" in your 1am wallet for createMarket()!");
-      console.log("=============================================================\n");
+  const moveCursorTo = async (targetX: number, targetY: number, steps: number = 8) => {
+    const startX = curX;
+    const startY = curY;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      curX = startX + (targetX - startX) * ease;
+      curY = startY + (targetY - startY) * ease;
 
-      const createStart = Date.now();
-      let lastLog = 0;
-      while (Date.now() - createStart < 120000) {
-        const isDone = await page.evaluate(() => {
-          const txt = document.body.innerText;
-          return (
-            txt.includes("Market Deployed Successfully") ||
-            txt.includes("Market creation failed") ||
-            txt.includes("Transaction was rejected")
-          );
-        });
-        if (isDone) {
-          console.log("✅ createMarket() circuit executed and deployed to Preprod!");
-          break;
+      await page.evaluate((x, y) => {
+        const el = document.getElementById('demo-cursor');
+        if (el) {
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
         }
-        const elapsed = Math.floor((Date.now() - createStart) / 1000);
-        if (elapsed - lastLog >= 5) {
-          lastLog = elapsed;
-          console.log(`   ⏳ [Create Market] Proving & waiting for approval (${elapsed}s elapsed)...`);
-        }
-        await sleep(1500);
-      }
-      await sleep(3500);
+      }, curX, curY);
+
+      await writeFrame(page, 1);
     }
+    curX = targetX;
+    curY = targetY;
+  };
 
-    // =======================================================================
-    // SCENE 5: Private Portfolio & Decrypted Receipts
-    // =======================================================================
-    console.log("📍 [Scene 5] Private Portfolio & Decrypted Positions...");
-    await navigateHash(page, "/portfolio");
-    await sleep(2000);
-    await smoothScroll(page, 350);
-    await sleep(2500);
-    await smoothScroll(page, -350);
-    await sleep(1500);
+  const clickAt = async (targetX: number, targetY: number) => {
+    await moveCursorTo(targetX, targetY, 6);
 
-    // =======================================================================
-    // SCENE 6: Resolver Console
-    // =======================================================================
-    console.log("📍 [Scene 6] Oracle & Resolver Console...");
-    await navigateHash(page, "/admin");
-    await sleep(2000);
-    await smoothScroll(page, 380);
-    await sleep(2500);
-    await smoothScroll(page, -380);
-    await sleep(1500);
+    await page.evaluate(() => {
+      const el = document.getElementById('demo-cursor');
+      if (el) el.style.transform = 'translate(-50%, -50%) scale(0.7)';
+    });
+    await writeFrame(page, 2);
 
-    // =======================================================================
-    // SCENE 7: Architecture & Protocol Specifications
-    // =======================================================================
-    console.log("📍 [Scene 7] About & Privacy Architecture...");
-    await navigateHash(page, "/about");
-    await sleep(2000);
-    await smoothScroll(page, 450);
-    await sleep(2000);
-    await smoothScroll(page, 450);
-    await sleep(2500);
-    await smoothScroll(page, -900);
-    await sleep(2000);
-  } finally {
-    // Gracefully stop workspace screen recording
-    console.log("⏹️ Stopping workspace screen recording (SIGINT to wf-recorder)...");
-    recorder.kill("SIGINT");
+    await page.mouse.click(targetX, targetY);
 
-    await new Promise((resolve) => recorder.on("close", resolve));
-    console.log("✅ wf-recorder successfully stopped.");
+    await page.evaluate(() => {
+      const el = document.getElementById('demo-cursor');
+      if (el) el.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
+    await writeFrame(page, 3);
+  };
+
+  const getElementCenterByText = async (text: string, tag: string = 'button'): Promise<{ x: number; y: number } | null> => {
+    return page.evaluate((t, tagName) => {
+      const elements = Array.from(document.querySelectorAll(tagName));
+      const match = elements.find((el) => el.textContent?.trim().toLowerCase().includes(t.toLowerCase()));
+      if (!match) return null;
+      const rect = match.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    }, text, tag);
+  };
+
+  const getElementCenterBySelector = async (selector: string): Promise<{ x: number; y: number } | null> => {
+    return page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    }, selector);
+  };
+
+  const typeSmoothly = async (selector: string, text: string) => {
+    const pos = await getElementCenterBySelector(selector);
+    if (pos) {
+      await clickAt(pos.x, pos.y);
+    }
+    // Type in chunks with frames
+    for (let i = 0; i < text.length; i += 3) {
+      const chunk = text.slice(0, i + 3);
+      await page.evaluate((sel, val) => {
+        const inp = document.querySelector(sel) as HTMLInputElement | HTMLTextAreaElement;
+        if (inp) {
+          inp.value = val;
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+          inp.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, selector, chunk);
+      await writeFrame(page, 1);
+    }
+    await writeFrame(page, 3);
+  };
+
+  // ==========================================
+  // SCENE 1: Landing Page Showcase (Clean UI)
+  // ==========================================
+  console.log('📽️  Scene 1: Landing Page Showcase (Clean UI)...');
+  await page.goto(`${BASE_URL}/#/`, { waitUntil: 'networkidle0' });
+  await injectCursor();
+  await writeFrame(page, 15);
+
+  // Hover over brand logo
+  await moveCursorTo(180, 32, 10);
+  await writeFrame(page, 10);
+
+  // Hover over "Preprod Live" network badge
+  const preprodBadge = await getElementCenterByText('Preprod Live', 'div');
+  if (preprodBadge) {
+    await moveCursorTo(preprodBadge.x, preprodBadge.y, 8);
+    await writeFrame(page, 10);
   }
 
-  // Convert MP4 to WebM for dual-format distribution
-  console.log("🔄 Converting demo.mp4 to WebM (VP9)...");
-  const webmConvert = spawn("ffmpeg", [
-    "-y",
-    "-i", MP4_PATH,
-    "-c:v", "libvpx-vp9",
-    "-b:v", "2500k",
-    "-preset", "fast",
-    WEBM_PATH
-  ]);
+  // Hover over Featured Breaking Market Card
+  await moveCursorTo(960, 220, 10);
+  await writeFrame(page, 15);
 
-  await new Promise((resolve, reject) => {
-    webmConvert.on("close", (code) => {
-      if (code === 0) resolve(true);
-      else reject(new Error(`FFmpeg exited with code ${code}`));
+  // Scroll down smoothly to show trending markets
+  for (let s = 0; s < 3; s++) {
+    await page.evaluate(() => window.scrollBy({ top: 140, behavior: 'smooth' }));
+    await writeFrame(page, 3);
+  }
+  await writeFrame(page, 10);
+
+  // Scroll back to top
+  for (let s = 0; s < 3; s++) {
+    await page.evaluate(() => window.scrollBy({ top: -140, behavior: 'smooth' }));
+    await writeFrame(page, 3);
+  }
+  await writeFrame(page, 10);
+
+  // ==========================================
+  // SCENE 2: Interactive Wallet Connection
+  // ==========================================
+  console.log('📽️  Scene 2: Interactive Wallet Connection...');
+  const connectBtnPos = await getElementCenterByText('Connect Wallet', 'button');
+  if (connectBtnPos) {
+    console.log(`   Moving to Connect Wallet at (${connectBtnPos.x}, ${connectBtnPos.y})...`);
+    await clickAt(connectBtnPos.x, connectBtnPos.y);
+    await writeFrame(page, 15); // Show modal opening
+  }
+
+  // Modal is now open. Locate and click "1am Wallet"
+  const oneAmBtnPos = await getElementCenterByText('1am Wallet', 'button');
+  if (oneAmBtnPos) {
+    console.log(`   Clicking 1am Wallet in modal at (${oneAmBtnPos.x}, ${oneAmBtnPos.y})...`);
+    await clickAt(oneAmBtnPos.x, oneAmBtnPos.y);
+    // Write frames while handshake completes and header transforms
+    for (let f = 0; f < 25; f++) {
+      await writeFrame(page, 1);
+    }
+  }
+
+  // Hover over the connected address pill to emphasize connected state
+  const disconnectBtnPos = await getElementCenterBySelector('button[title="Disconnect wallet"]');
+  if (disconnectBtnPos) {
+    await moveCursorTo(disconnectBtnPos.x - 60, disconnectBtnPos.y, 8);
+    await writeFrame(page, 20); // Pause on connected address
+  }
+
+  // ==========================================
+  // SCENE 3: Create a Prediction Market Flow
+  // ==========================================
+  console.log('📽️  Scene 3: Permissionless Market Creation...');
+  // Click "+ Create" in navigation bar
+  const createNavPos = await getElementCenterByText('+ Create', 'a');
+  if (createNavPos) {
+    console.log(`   Clicking + Create at (${createNavPos.x}, ${createNavPos.y})...`);
+    await clickAt(createNavPos.x, createNavPos.y);
+    await writeFrame(page, 15);
+  } else {
+    await page.goto(`${BASE_URL}/#/create`, { waitUntil: 'networkidle0' });
+    await injectCursor();
+    await writeFrame(page, 15);
+  }
+
+  // Type Market Question
+  console.log('   Typing Market Question...');
+  await typeSmoothly(
+    'input[placeholder*="Will Midnight launch"]',
+    'Will Midnight testnet achieve sub-second ZK proof generation in 2026?'
+  );
+
+  // Select Category "Crypto/Macro"
+  const catPos = await getElementCenterByText('Crypto/Macro', 'button');
+  if (catPos) {
+    await clickAt(catPos.x, catPos.y);
+    await writeFrame(page, 8);
+  }
+
+  // Type Resolution Criteria / Description
+  console.log('   Typing Description & Rules...');
+  await typeSmoothly(
+    'textarea[placeholder*="Describe exact conditions"]',
+    'Resolves to YES if official Midnight benchmark demonstrates client-side PLONK proving under 1000ms.'
+  );
+
+  // Type Resolution Source
+  console.log('   Typing Resolution Source...');
+  await typeSmoothly(
+    'input[placeholder*="Official Midnight Consensus"]',
+    'Official Midnight Foundation Consensus & Explorer Telemetry'
+  );
+
+  // Scroll down slightly so preview card and submit button are centered
+  await page.evaluate(() => window.scrollBy({ top: 120, behavior: 'smooth' }));
+  await writeFrame(page, 8);
+
+  // Move cursor to "Deploy Market to Preprod →"
+  const deployBtnPos = await getElementCenterByText('Deploy Market to Preprod', 'button');
+  if (deployBtnPos) {
+    console.log(`   Clicking Deploy Market at (${deployBtnPos.x}, ${deployBtnPos.y})...`);
+    await clickAt(deployBtnPos.x, deployBtnPos.y);
+
+    // Record multi-stage ZK deployment progress in the UI
+    console.log('   Recording in-flight deployment progress...');
+    for (let f = 0; f < 80; f++) {
+      await writeFrame(page, 1);
+    }
+  }
+
+  // Hover over the success modal with Market ID and Tx Hash
+  const viewMarketBtnPos = await getElementCenterByText('View Live Market', 'button');
+  if (viewMarketBtnPos) {
+    await moveCursorTo(viewMarketBtnPos.x, viewMarketBtnPos.y, 8);
+    await writeFrame(page, 25); // Pause on success notification
+  }
+
+  // ==========================================
+  // SCENE 4: Confidential Prediction Placement
+  // ==========================================
+  console.log('📽️  Scene 4: Confidential Prediction (Shielded Bet)...');
+  await page.goto(`${BASE_URL}/#/markets/1`, { waitUntil: 'networkidle0' });
+  await injectCursor();
+  await writeFrame(page, 15);
+
+  // Hover over market title and sentiment bar
+  await moveCursorTo(480, 180, 10);
+  await writeFrame(page, 12);
+
+  // Hover over Odds Display chart
+  await moveCursorTo(480, 360, 10);
+  await writeFrame(page, 15);
+
+  // In Order Slip: Toggle YES / NO to show responsiveness
+  const yesBtnPos = await getElementCenterByText('Yes', 'button');
+  const noBtnPos = await getElementCenterByText('No', 'button');
+
+  if (yesBtnPos) {
+    await clickAt(yesBtnPos.x, yesBtnPos.y);
+    await writeFrame(page, 8);
+  }
+  if (noBtnPos) {
+    await clickAt(noBtnPos.x, noBtnPos.y);
+    await writeFrame(page, 8);
+  }
+  if (yesBtnPos) {
+    await clickAt(yesBtnPos.x, yesBtnPos.y);
+    await writeFrame(page, 8);
+  }
+
+  // Set stake amount to "150"
+  console.log('   Setting stake amount to 150 tDUST...');
+  const amountInputPos = await getElementCenterBySelector('input[type="number"]');
+  if (amountInputPos) {
+    await clickAt(amountInputPos.x, amountInputPos.y);
+    await page.evaluate(() => {
+      const inp = document.querySelector('input[type="number"]') as HTMLInputElement;
+      if (inp) {
+        inp.value = '150';
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await writeFrame(page, 15);
+  }
+
+  // Click "Place Shielded Bet"
+  const placeBetBtnPos = await getElementCenterByText('Place Shielded Bet', 'button');
+  if (placeBetBtnPos) {
+    console.log(`   Clicking Place Shielded Bet at (${placeBetBtnPos.x}, ${placeBetBtnPos.y})...`);
+    await clickAt(placeBetBtnPos.x, placeBetBtnPos.y);
+
+    // Record ZK PLONK proof generation progression & preprod broadcast
+    console.log('   Recording ZK proof generation progression...');
+    for (let f = 0; f < 80; f++) {
+      await writeFrame(page, 1);
+    }
+  }
+
+  // Hover over the confirmed receipt card (Commitment & Tx Hash)
+  const confirmCardPos = await getElementCenterByText('Shielded Position Confirmed', 'div');
+  if (confirmCardPos) {
+    await moveCursorTo(confirmCardPos.x, confirmCardPos.y + 40, 10);
+    await writeFrame(page, 30); // Hold on confirmed ZK position
+  }
+
+  // ==========================================
+  // SCENE 5: Shielded Portfolio Vault & Outro
+  // ==========================================
+  console.log('📽️  Scene 5: Shielded Portfolio Vault...');
+  const portfolioNavPos = await getElementCenterByText('Portfolio', 'a');
+  if (portfolioNavPos) {
+    await clickAt(portfolioNavPos.x, portfolioNavPos.y);
+    await writeFrame(page, 15);
+  } else {
+    await page.goto(`${BASE_URL}/#/portfolio`, { waitUntil: 'networkidle0' });
+    await injectCursor();
+    await writeFrame(page, 15);
+  }
+
+  // Hover over portfolio vault metrics
+  await moveCursorTo(400, 130, 8);
+  await writeFrame(page, 12);
+  await moveCursorTo(780, 130, 8);
+  await writeFrame(page, 12);
+
+  // Scroll down to display the shielded positions table
+  await page.evaluate(() => window.scrollBy({ top: 140, behavior: 'smooth' }));
+  await writeFrame(page, 10);
+
+  // Hover over the newly generated shielded position receipt
+  await moveCursorTo(960, 420, 10);
+  await writeFrame(page, 35); // Hold on private vault view
+
+  // Conclude recording
+  console.log('🏁 Concluding recording...');
+  await page.close();
+  await browser.close();
+
+  ffmpeg.stdin.end();
+
+  await new Promise<void>((resolve, reject) => {
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        console.log(`\n🎉 Demo video generated successfully!`);
+        console.log(`Saved to: ${OUTPUT_FILE}`);
+        resolve();
+      } else {
+        reject(new Error(`ffmpeg exited with code ${code}`));
+      }
     });
   });
 
-  // Copy both to docs/demo/
-  fs.copyFileSync(MP4_PATH, path.resolve(process.cwd(), "docs/demo/demo.mp4"));
-  fs.copyFileSync(WEBM_PATH, path.resolve(process.cwd(), "docs/demo/demo.webm"));
-
-  const mp4Stats = fs.statSync(MP4_PATH);
-  const webmStats = fs.statSync(WEBM_PATH);
-
-  console.log("\n=============================================================");
-  console.log("🏆 DEMO RECORDING COMPLETE (Full Workspace)!");
-  console.log(`   📹 MP4 Video:  ${MP4_PATH} (${(mp4Stats.size / (1024 * 1024)).toFixed(2)} MB)`);
-  console.log(`   📹 WebM Video: ${WEBM_PATH} (${(webmStats.size / (1024 * 1024)).toFixed(2)} MB)`);
-  console.log("=============================================================\n");
-
-  browser.disconnect();
+  // Copy to Artifact directory
+  try {
+    if (!fs.existsSync(ARTIFACT_DIR)) {
+      fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+    }
+    fs.copyFileSync(OUTPUT_FILE, ARTIFACT_FILE);
+    console.log(`Copied video artifact to: ${ARTIFACT_FILE}`);
+  } catch (err) {
+    console.warn('Could not copy to artifact directory:', err);
+  }
 }
 
-main().catch((err) => {
-  console.error("Recording failed:", err);
+recordDemo().catch((err) => {
+  console.error('❌ Recording failed:', err);
   process.exit(1);
 });

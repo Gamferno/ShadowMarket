@@ -24,9 +24,9 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 | **Deployer Wallet** | `mn_addr_preprod152e9j8z922lzkldpfp6fwtwnuf9nz5dy5gsyf3r84q7nvcmtr04scnww85` | Unshielded Preprod Address |
 | **Initial Market #1** | *"Will Midnight Mainnet launch with native Zero-Knowledge privacy in 2026?"* | Live on Preprod Ledger |
 | **Live Web App Demo** | [`shadowmarket-woad.vercel.app`](https://shadowmarket-woad.vercel.app/) | [Launch DApp ↗](https://shadowmarket-woad.vercel.app/) |
-| **Demo Preview (GIF)** | [`demo.gif`](demo.gif) | Animated Walkthrough / 960x600 @ 10fps (10.0 MB) |
-| **Demo Video (MP4)** | [`demo.mp4`](demo.mp4) | Universal H.264 / 2880x1800 @ 30fps (22.2 MB, 2m 32s) |
-| **Demo Video (WebM)** | [`demo.webm`](demo.webm) | High-Efficiency VP9 / 2880x1800 @ 30fps (13.2 MB, 2m 32s) |
+| **Demo Preview (GIF)** | [`demo.gif`](demo.gif) | Animated Walkthrough / 960x600 @ 10fps (3.6 MB) |
+| **Demo Video (MP4)** | [`demo.mp4`](demo.mp4) | Universal H.264 / 2880x1800 HiDPI (6.5 MB, ~1m) |
+| **Demo Video (WebM)** | [`demo.webm`](demo.webm) | High-Efficiency VP9 / 2880x1800 HiDPI (13.0 MB, ~1m) |
 
 ---
 
@@ -34,17 +34,16 @@ ShadowMarket is deployed and operational on the **Midnight Preprod Testnet**:
 
 ![ShadowMarket MVP Demo Walkthrough](demo.gif)
 
-> 📥 **Full-Resolution High-Definition Downloads (2880x1800 @ 30fps)**:
-> - [**`demo.mp4`**](demo.mp4) *(Universal H.264 / 22.2 MB, duration: 2m 32s)*
-> - [**`demo.webm`**](demo.webm) *(High-Efficiency VP9 / 13.2 MB, duration: 2m 32s)*
+> 📥 **Full-Resolution High-Definition Downloads (2880x1800 HiDPI)**:
+> - [**`demo.mp4`**](demo.mp4) *(Universal H.264 / 6.5 MB, raw real-time)*
+> - [**`demo.webm`**](demo.webm) *(High-Efficiency VP9 / 13.0 MB, raw real-time)*
 
-The demo walkthrough (2m 32s, <3 minutes) demonstrates:
-1. **Wallet Connection**: Connecting to Midnight Preprod via 1am Wallet (CAIP-372) and checking the local Docker proof server (port 6300).
-2. **Markets Discovery**: Searching prediction markets, filtering by category chip, and viewing real-time responsive SVG odds charts.
-3. **Shielded Bet Placement**: Placing a 50 tDUST bet on YES, generating the PLONK circuit proof locally, signing via 1am Wallet, and confirming the commitment hash on-chain.
-4. **Permissionless Market Creation**: Submitting the `createMarket` transaction to deploy a new prediction market on-chain.
-5. **Decrypted Portfolio**: Inspecting client-side decrypted positions in private browser storage.
-6. **Oracle Resolution & Anonymous Claim**: Executing market resolution and claiming winning payouts with double-claim prevention via one-way cryptographic nullifiers.
+The live demo walkthrough (captured in real-time with native 1AM wallet popups and user approvals) demonstrates:
+1. **Homepage & Markets Discovery**: Exploring active prediction markets on Midnight Preprod with clean protocol metrics and responsive SVG odds charts.
+2. **1AM Wallet Connection**: Connecting directly to Midnight Preprod via 1am Wallet (CAIP-372) and checking the local Docker proof server (port 6300).
+3. **Permissionless Market Creation**: Submitting the `createMarket` transaction with proposition, category, resolution criteria, and authenticated oracle source to deploy a new prediction market on-chain with 1AM popup approval.
+4. **Shielded Bet Placement**: Placing a 100 tDUST bet on YES, generating the PLONK circuit proof locally on the proof server, signing via 1AM popup, and confirming the commitment receipt on-chain.
+5. **Decrypted Portfolio & Private Vault**: Inspecting client-side decrypted positions and cryptographic receipts in private browser storage.
 
 ---
 
@@ -71,12 +70,12 @@ The table below defines the cryptographic privacy boundaries enforced by ShadowM
 
 | Observer CANNOT Learn (Shielded Private State) | Observer CAN Learn (Public On-Chain Ledger) |
 |---|---|
-| **Bettor Identity & Wallet Address**<br>Neither unshielded nor shielded wallet addresses are associated with individual bets. Transactions prove validity without publishing caller identity. | **Aggregate Market Volume & Pool Size**<br>The sum total of stakes (`totalVolume`, `totalStakeYes`, `totalStakeNo`) is incremented verifiably on-chain without revealing who contributed. |
-| **Individual Bet Amount (Stake Size)**<br>Exact wager amounts exist solely in private witness memory. Whales, funds, and retail participants place bets without revealing position sizes. | **Market Odds & Probability**<br>The current integer odds percentage (e.g. 70% YES / 30% NO) calculated by the ZK circuit and disclosed to the public ledger. |
-| **Individual Direction Choice (YES or NO)**<br>Whether an individual bettor predicted YES or NO is cryptographically hidden inside a one-way Pedersen commitment. | **Market Metadata & Criteria**<br>Question title, detailed description, category chip, resolution deadline, and authorized resolver public key. |
+| **Bettor Identity & Wallet Address**<br>Neither unshielded nor shielded wallet addresses are associated with individual bets. Transactions prove validity without publishing caller identity. | **Aggregate Market Volume & Escrow Pool**<br>The sum total of stakes (`totalVolume`, `escrowBalance`) is incremented verifiably on-chain without revealing who contributed or which side received capital. |
+| **Individual Bet Amount (Stake Size)**<br>Exact wager amounts exist solely in private witness memory. Whales, funds, and retail participants place bets without revealing position sizes. | **Market Odds & Probability**<br>The current odds calculated by the ZK circuit without disclosing individual wager direction or size. |
+| **Individual Direction Choice (YES or NO)**<br>Whether an individual bettor predicted YES or NO is strictly confidential and sealed inside a one-way Pedersen commitment. Zero per-bet side updates are published to the public ledger. | **Market Metadata & Oracle Key**<br>Question title, description, category, resolution deadline, and registered Oracle public key (`oraclePublicKey: JubjubPoint`). |
 | **Random Salt & Nonce**<br>A cryptographically secure random 32-byte salt ensures two identical bets (same amount, same side) yield completely distinct, unlinkable commitment hashes. | **Opaque Bet Commitment Hashes**<br>32-byte hash `persistentCommit(betData, salt)` added to the ledger mapping `betCommitments`, proving existence without revealing content. |
-| **User Secret Key & Private Witness**<br>Private keys, derived roots, and local history remain in client storage (`inMemoryPrivateStateProvider`) and are never sent to RPC nodes or indexers. | **Spent Nullifiers**<br>One-way 32-byte nullifiers `persistentHash(secretKey, nonce)` published on payout claim to prevent double-spending without revealing which bet was claimed. |
-| **Bet-to-Payout Linkability**<br>When claiming winning payouts, zero mathematical linkage exists between the withdrawal transaction and the original bet commitment. | **Market State Transitions**<br>Lifecycle status changes (`Open` → `Closed` → `Resolved`) and official verified winning outcome. |
+| **User Secret Key & Private Witness**<br>Cryptographic session keys derived from wallet authentication (`api.signData`) remain in client storage (`inMemoryPrivateStateProvider`) and are never sent to RPC nodes or indexers. | **Spent Nullifiers**<br>One-way 32-byte nullifiers `persistentHash(secretKey, nonce)` published on payout claim to prevent double-spending without revealing which bet was claimed. |
+| **Bet-to-Payout Linkability**<br>When claiming winning payouts, zero mathematical linkage exists between the withdrawal transaction and the original bet commitment. | **Market State Transitions**<br>Lifecycle status changes (`Open` → `Closed` → `Resolved`) and official authenticated winning outcome. |
 
 ### How This Eliminates Web3 Market Vulnerabilities
 
@@ -102,25 +101,26 @@ ShadowMarket enforces strict separation across Midnight's three execution bounda
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        PUBLIC LEDGER (ON-CHAIN)                        │
 │  - Market metadata (Question, Category, Resolution Source)             │
-│  - Aggregate totalVolume, totalStakeYes, totalStakeNo                  │
+│  - Registered Oracle Public Key (JubjubPoint)                          │
+│  - Aggregate totalVolume, betCounter, on-chain escrowBalance           │
 │  - Bet Commitments: Map<Bytes<32>, Boolean> (Opaque hashes)            │
 │  - Claimed Nullifiers: Set<Bytes<32>> (Double-claim prevention)        │
-│  - Disclosed Odds (via Compact discloseOdds circuit)                   │
+│  - Zero Per-Bet Side Leaks (totalStakeYes/totalStakeNo NOT disclosed)  │
 └────────────────────────────────────▲───────────────────────────────────┘
                                      │  Verified by On-Chain Verifier
                                      │  (ZK-SNARK PLONK Proof)
 ┌────────────────────────────────────┴───────────────────────────────────┐
 │                     CLIENT ZK CIRCUIT (LOCAL DOCKER)                   │
-│  - placeShieldedBet: Proves stake > 0 & updates volume correctly       │
-│  - discloseOdds: Verifies integer percentage odds arithmetic           │
-│  - claimPayout: Proves commitment ownership & proportional payout      │
-│  - Generates deterministic nullifier from secretKey + bet nonce        │
+│  - placeShieldedBet: Proves stake > 0, locks native token escrow       │
+│  - resolveMarketWithOracle: In-circuit Jubjub Schnorr verification     │
+│  - claimPayout: Proves commitment ownership & burns nullifier          │
+│  - Disburses unshielded native token payout to winner wallet           │
 └────────────────────────────────────▲───────────────────────────────────┘
                                      │  Witness Context
                                      │  (Never leaves browser)
 ┌────────────────────────────────────┴───────────────────────────────────┐
 │                   PRIVATE WITNESS (BROWSER STORAGE)                    │
-│  - Bettor secretKey (Seed / Derived Private Key)                       │
+│  - Wallet-authenticated secretKey (derived via api.signData)           │
 │  - Individual bet direction (isYes: true / false)                      │
 │  - Individual bet amount (Confidential wager)                          │
 │  - Random salt (nonce) ensuring commitment hiding property             │
@@ -215,6 +215,9 @@ ShadowMarket includes an automated unit and circuit test suite covering multi-ma
 ```bash
 # Run all 14 contract and cryptographic circuit unit tests
 npm test
+
+# Run independent on-chain deployment verification against Midnight Preprod
+npm run verify:deployment
 
 # Run strict TypeScript typecheck
 npm run lint

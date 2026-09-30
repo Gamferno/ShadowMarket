@@ -17,7 +17,9 @@
     "test:e2e:live": "tsx scripts/test-e2e-live.ts",
     "test:create-market": "tsx scripts/test-create-market.ts",
     "record:demo": "tsx scripts/record-demo.ts",
-    "lint": "tsc --noEmit"
+    "record:live": "tsx scripts/record-live-collaborative.ts",
+    "lint": "tsc --noEmit",
+    "verify:deployment": "tsx scripts/verify-deployment.ts"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-js": "2.5.1",

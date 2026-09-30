@@ -4,6 +4,8 @@ import type { ShadowMarketPrivateState, ShieldedBetReceipt } from '../types/inde
 import { bytesToHex } from './formatters.ts';
 import { saveReceipts } from './storage.ts';
 
+const TWO_248 = 452312848583266388373324160190187140051835877600158453279131187530910662656n;
+
 export function generateRandomBytes(length: number = 32): Uint8Array {
   const bytes = new Uint8Array(length);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -17,9 +19,19 @@ export function generateRandomBytes(length: number = 32): Uint8Array {
 }
 
 export function createWitnesses(
-  customSecret?: Uint8Array
+  customSecret?: Uint8Array,
+  customRecipient?: Uint8Array
 ): Witnesses<ShadowMarketPrivateState> {
   return {
+    getSchnorrReduction: (
+      context: WitnessContext<Ledger, ShadowMarketPrivateState>,
+      challengeHash: bigint
+    ): [ShadowMarketPrivateState, [bigint, bigint]] => {
+      const q = challengeHash / TWO_248;
+      const r = challengeHash % TWO_248;
+      return [context.privateState, [q, r]];
+    },
+
     get_user_secret: (
       context: WitnessContext<Ledger, ShadowMarketPrivateState>
     ): [ShadowMarketPrivateState, Uint8Array] => {
@@ -93,60 +105,16 @@ export function createWitnesses(
       return [context.privateState, targetReceipt.nonceBytes];
     },
 
-    get_claimed_payout: (
+    get_claim_recipient: (
       context: WitnessContext<Ledger, ShadowMarketPrivateState>
-    ): [ShadowMarketPrivateState, bigint] => {
-      const { receipts, activeClaimReceiptId, activeMarketId } = context.privateState;
-      let targetReceipt: ShieldedBetReceipt | undefined;
-
-      if (activeClaimReceiptId && receipts.has(activeClaimReceiptId)) {
-        targetReceipt = receipts.get(activeClaimReceiptId);
-      } else {
-        for (const receipt of receipts.values()) {
-          if (!receipt.claimed && (!activeMarketId || receipt.marketId === activeMarketId)) {
-            targetReceipt = receipt;
-            break;
-          }
-        }
-      }
-
-      if (!targetReceipt) {
-        throw new Error('No active receipt found for payout computation');
-      }
-
-      const currentLedger = context.ledger;
-      const marketId = BigInt(targetReceipt.marketId || 1);
-      
-      if (!currentLedger.markets.member(marketId)) {
-        throw new Error(`Market ${marketId} not found in ledger`);
-      }
-      
-      const m = currentLedger.markets.lookup(marketId);
-      const totalVol = m.totalVolume;
-      const winningStake = targetReceipt.isYes ? m.totalStakeYes : m.totalStakeNo;
-
-      if (m.outcome === 3 /* Outcome.Inconclusive */) {
-        return [context.privateState, targetReceipt.amount];
-      }
-
-      if (winningStake === 0n) {
-        throw new Error('Winning stake is zero, cannot compute payout');
-      }
-
-      const payout = (targetReceipt.amount * totalVol) / winningStake;
-      return [context.privateState, payout];
+    ): [ShadowMarketPrivateState, Uint8Array] => {
+      const recipient = customRecipient ?? context.privateState.recipientAddress ?? new Uint8Array(32).fill(2);
+      return [context.privateState, recipient];
     },
 
     get_disclosed_odds: (
       context: WitnessContext<Ledger, ShadowMarketPrivateState>
     ): [ShadowMarketPrivateState, bigint] => {
-      const marketId = context.privateState.activeMarketId ? BigInt(context.privateState.activeMarketId) : 1n;
-      if (context.ledger.markets.member(marketId)) {
-        const m = context.ledger.markets.lookup(marketId);
-        const total = m.totalStakeYes + m.totalStakeNo;
-        if (total === 0n) return [context.privateState, 50n];
-        return [context.privateState, (m.totalStakeYes * 100n) / total];
-      }
       return [context.privateState, 50n];
     },
 

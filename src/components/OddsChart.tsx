@@ -14,10 +14,10 @@ export const OddsChart: React.FC<OddsChartProps> = ({ marketId }) => {
   }, [marketId, timeframe]);
 
   // SVG dimensions
-  const width = 600;
-  const height = 220;
+  const width = 640;
+  const height = 240;
   const paddingX = 40;
-  const paddingY = 25;
+  const paddingY = 20;
 
   const chartWidth = width - paddingX * 2;
   const chartHeight = height - paddingY * 2;
@@ -52,65 +52,52 @@ export const OddsChart: React.FC<OddsChartProps> = ({ marketId }) => {
   const activePoint = hoveredPoint || data[data.length - 1];
 
   return (
-    <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-5 space-y-4">
-      {/* Header with Title and Timeframe Selector */}
+    <div className="space-y-3 font-sans">
+      {/* Top Controls: Readout and Timeframe selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-300">Probability Trajectory</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">
-              discloseOdds
-            </span>
-          </div>
-          <div className="text-[11px] text-slate-500 mt-0.5">
-            Hover to inspect aggregate odds at any point
-          </div>
+        {/* Active hovered point snapshot (Blue and Red) */}
+        <div className="text-xs">
+          {activePoint ? (
+            <div className="flex items-center gap-3">
+              <span className="text-[#94A3B8]">{activePoint.label}</span>
+              <span className="text-[#0EA5E9] font-bold tabular-nums">YES: {activePoint.yesOdds}%</span>
+              <span className="text-[#F43F5E] font-bold tabular-nums">NO: {activePoint.noOdds}%</span>
+            </div>
+          ) : (
+            <span className="text-[#64748B]">Hover over chart to inspect historical odds</span>
+          )}
         </div>
 
-        {/* Timeframe pills */}
-        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
+        {/* Timeframe Pills */}
+        <div className="flex items-center gap-1 bg-[#0A0B0D] p-1 rounded-lg border border-[#252832] self-start sm:self-auto">
           {(['24H', '7D', '30D', 'ALL'] as const).map((tf) => (
             <button
               key={tf}
               type="button"
               onClick={() => setTimeframe(tf)}
-              className={`px-2.5 py-1 text-[11px] font-mono rounded-lg transition-all cursor-pointer ${
+              className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors cursor-pointer ${
                 timeframe === tf
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-[#1C1E26] text-white shadow-sm'
+                  : 'text-[#94A3B8] hover:text-white'
               }`}
             >
-              {tf}
+              {tf === '24H' ? '1D' : tf === '7D' ? '1W' : tf === '30D' ? '1M' : 'ALL'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Snapshot readout on hover or current */}
-      {activePoint && (
-        <div className="flex items-center justify-between bg-slate-900/60 p-2.5 px-4 rounded-xl border border-slate-800/70 text-xs font-mono">
-          <div className="flex items-center gap-3">
-            <span className="text-slate-400">{activePoint.label}</span>
-            <span className="text-emerald-400 font-bold">YES: {activePoint.yesOdds}%</span>
-            <span className="text-rose-400 font-bold">NO: {activePoint.noOdds}%</span>
-          </div>
-          <div className="text-slate-500 hidden sm:block">
-            Vol: {activePoint.volume.toLocaleString()} units
-          </div>
-        </div>
-      )}
-
-      {/* Interactive SVG Chart */}
-      <div className="relative w-full overflow-hidden">
+      {/* SVG Probability Chart (Blue and Red) */}
+      <div className="relative w-full overflow-hidden bg-[#0A0B0D] rounded-lg border border-[#252832] p-2">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-44 select-none"
+          className="w-full h-48 select-none"
           onMouseLeave={() => setHoveredPoint(null)}
         >
           <defs>
-            <linearGradient id="oddsGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+            <linearGradient id="polyGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#0EA5E9" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#0EA5E9" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
@@ -124,16 +111,16 @@ export const OddsChart: React.FC<OddsChartProps> = ({ marketId }) => {
                   y1={y}
                   x2={width - paddingX}
                   y2={y}
-                  stroke="#1e293b"
+                  stroke="#252832"
                   strokeDasharray="4 4"
                   strokeWidth="1"
                 />
                 <text
                   x={paddingX - 8}
                   y={y + 3}
-                  fill="#64748b"
+                  fill="#64748B"
                   fontSize="10"
-                  fontFamily="monospace"
+                  fontFamily="sans-serif"
                   textAnchor="end"
                 >
                   {val}%
@@ -142,15 +129,15 @@ export const OddsChart: React.FC<OddsChartProps> = ({ marketId }) => {
             );
           })}
 
-          {/* Area fill under curve */}
-          {areaD && <path d={areaD} fill="url(#oddsGradient)" />}
+          {/* Area fill under curve (Blue) */}
+          {areaD && <path d={areaD} fill="url(#polyGradient)" />}
 
-          {/* YES Probability Line */}
+          {/* YES Probability Line (Blue) */}
           {pathD && (
             <path
               d={pathD}
               fill="none"
-              stroke="#10b981"
+              stroke="#0EA5E9"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -163,8 +150,10 @@ export const OddsChart: React.FC<OddsChartProps> = ({ marketId }) => {
               key={idx}
               cx={p.x}
               cy={p.y}
-              r={hoveredPoint?.timestamp === p.data.timestamp ? 5 : 3}
-              fill={hoveredPoint?.timestamp === p.data.timestamp ? '#34d399' : '#06b6d4'}
+              r={hoveredPoint?.timestamp === p.data.timestamp ? 5 : 2.5}
+              fill="#0EA5E9"
+              stroke="#0A0B0D"
+              strokeWidth="1.5"
               className="transition-all cursor-pointer"
               onMouseEnter={() => setHoveredPoint(p.data)}
             />
@@ -177,7 +166,7 @@ export const OddsChart: React.FC<OddsChartProps> = ({ marketId }) => {
               y1={paddingY}
               x2={points.find((p) => p.data.timestamp === hoveredPoint.timestamp)?.x || 0}
               y2={paddingY + chartHeight}
-              stroke="#06b6d4"
+              stroke="#0EA5E9"
               strokeWidth="1.5"
               strokeDasharray="3 3"
             />
@@ -185,9 +174,12 @@ export const OddsChart: React.FC<OddsChartProps> = ({ marketId }) => {
         </svg>
       </div>
 
-      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-        <span>Historical snapshots derived via zero-knowledge tally</span>
-        <span className="font-mono text-cyan-400/80">MEV-Resistant Tally</span>
+      <div className="flex items-center justify-between text-[11px] text-[#64748B]">
+        <span>Aggregated on-chain volume trajectory</span>
+        <span className="text-[#FBBF24] flex items-center gap-1">
+          <span>🔒</span>
+          <span>Zero-Knowledge Preserved Tally</span>
+        </span>
       </div>
     </div>
   );

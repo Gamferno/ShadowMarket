@@ -27,6 +27,17 @@
       "proof": true,
       "arguments": [
         {
+          "name": "oraclePk",
+          "type": {
+            "type-name": "Alias",
+            "name": "JubjubPoint",
+            "type": {
+              "type-name": "Opaque",
+              "tsType": "JubjubPoint"
+            }
+          }
+        },
+        {
           "name": "question",
           "type": {
             "type-name": "Opaque",
@@ -123,55 +134,6 @@
       }
     },
     {
-      "name": "discloseOdds",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "marketId",
-          "type": {
-            "type-name": "Uint",
-            "maxval": 18446744073709551615
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 18446744073709551615
-      }
-    },
-    {
-      "name": "verifyOdds",
-      "pure": true,
-      "proof": false,
-      "arguments": [
-        {
-          "name": "yesStake",
-          "type": {
-            "type-name": "Uint",
-            "maxval": 18446744073709551615
-          }
-        },
-        {
-          "name": "noStake",
-          "type": {
-            "type-name": "Uint",
-            "maxval": 18446744073709551615
-          }
-        },
-        {
-          "name": "oddsPercent",
-          "type": {
-            "type-name": "Uint",
-            "maxval": 18446744073709551615
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Boolean"
-      }
-    },
-    {
       "name": "closeMarket",
       "pure": false,
       "proof": true,
@@ -181,6 +143,71 @@
           "type": {
             "type-name": "Uint",
             "maxval": 18446744073709551615
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "resolveMarketWithOracle",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "marketId",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        },
+        {
+          "name": "winningOutcome",
+          "type": {
+            "type-name": "Enum",
+            "name": "Outcome",
+            "elements": [
+              "None",
+              "Yes",
+              "No",
+              "Inconclusive"
+            ]
+          }
+        },
+        {
+          "name": "resolutionTime",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        },
+        {
+          "name": "oracleSignature",
+          "type": {
+            "type-name": "Struct",
+            "name": "SchnorrSignature",
+            "elements": [
+              {
+                "name": "announcement",
+                "type": {
+                  "type-name": "Alias",
+                  "name": "JubjubPoint",
+                  "type": {
+                    "type-name": "Opaque",
+                    "tsType": "JubjubPoint"
+                  }
+                }
+              },
+              {
+                "name": "response",
+                "type": {
+                  "type-name": "Field"
+                }
+              }
+            ]
           }
         }
       ],
@@ -239,9 +266,74 @@
         "type-name": "Uint",
         "maxval": 18446744073709551615
       }
+    },
+    {
+      "name": "discloseOdds",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "marketId",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 18446744073709551615
+      }
+    },
+    {
+      "name": "verifyOdds",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "yesOdds",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        },
+        {
+          "name": "noOdds",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Boolean"
+      }
     }
   ],
   "witnesses": [
+    {
+      "name": "getSchnorrReduction",
+      "arguments": [
+        {
+          "name": "challengeHash",
+          "type": {
+            "type-name": "Field"
+          }
+        }
+      ],
+      "result type": {
+        "type-name": "Tuple",
+        "types": [
+          {
+            "type-name": "Field"
+          },
+          {
+            "type-name": "Uint",
+            "maxval": 452312848583266388373324160190187140051835877600158453279131187530910662655
+          }
+        ]
+      }
+    },
     {
       "name": "get_user_secret",
       "arguments": [
@@ -315,12 +407,12 @@
       }
     },
     {
-      "name": "get_claimed_payout",
+      "name": "get_claim_recipient",
       "arguments": [
       ],
       "result type": {
-        "type-name": "Uint",
-        "maxval": 18446744073709551615
+        "type-name": "Bytes",
+        "length": 32
       }
     },
     {
@@ -424,6 +516,17 @@
             }
           },
           {
+            "name": "oraclePublicKey",
+            "type": {
+              "type-name": "Alias",
+              "name": "JubjubPoint",
+              "type": {
+                "type-name": "Opaque",
+                "tsType": "JubjubPoint"
+              }
+            }
+          },
+          {
             "name": "question",
             "type": {
               "type-name": "Opaque",
@@ -478,20 +581,6 @@
             }
           },
           {
-            "name": "totalStakeYes",
-            "type": {
-              "type-name": "Uint",
-              "maxval": 18446744073709551615
-            }
-          },
-          {
-            "name": "totalStakeNo",
-            "type": {
-              "type-name": "Uint",
-              "maxval": 18446744073709551615
-            }
-          },
-          {
             "name": "totalVolume",
             "type": {
               "type-name": "Uint",
@@ -503,6 +592,13 @@
             "type": {
               "type-name": "Uint",
               "maxval": 18446744073709551615
+            }
+          },
+          {
+            "name": "escrowBalance",
+            "type": {
+              "type-name": "Uint",
+              "maxval": 340282366920938463463374607431768211455
             }
           }
         ]

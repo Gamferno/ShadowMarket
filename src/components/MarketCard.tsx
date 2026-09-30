@@ -1,101 +1,134 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { MarketPublicData } from '../utils/contract.ts';
+import { formatDust } from '../utils/formatters.ts';
 
 interface MarketCardProps {
   market: MarketPublicData;
 }
 
 export const MarketCard: React.FC<MarketCardProps> = ({ market }) => {
-  const total = market.totalStakeYes + market.totalStakeNo;
-  let yesPercent = 50;
-  let noPercent = 50;
+  const navigate = useNavigate();
 
-  if (total > 0n) {
-    yesPercent = Number((market.totalStakeYes * 100n) / total);
-    noPercent = 100 - yesPercent;
-  }
+  // For this prototype, binary markets trade at 50/50 initial parity or calculated
+  const yesPercent = 50;
+  const noPercent = 50;
 
   const formatCloseDate = (ts: bigint | number) => {
     try {
       const ms = typeof ts === 'bigint' ? Number(ts) * 1000 : ts * 1000;
       return new Date(ms).toLocaleDateString('en-US', {
         month: 'short',
-        day: 'numeric',
-        year: 'numeric'
+        day: 'numeric'
       });
     } catch {
-      return 'Dec 31, 2026';
+      return 'Dec 31';
     }
   };
 
+  const getCategoryIcon = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'crypto/macro':
+      case 'crypto':
+        return '₿';
+      case 'politics':
+        return '🏛️';
+      case 'sports':
+        return '⚽';
+      case 'local/civic':
+        return '🗳️';
+      default:
+        return '⚡';
+    }
+  };
+
+  const handleOutcomeClick = (e: React.MouseEvent, outcome: 'yes' | 'no') => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigate(`/markets/${market.id}?outcome=${outcome}`);
+  };
+
   return (
-    <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-5 shadow-lg hover:shadow-cyan-500/5 transition-all flex flex-col justify-between space-y-4 group">
-      {/* Top Badges */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+    <article className="bg-[#13151A] border border-[#252832] hover:border-[#3E4456] hover:shadow-2xl hover:-translate-y-1 rounded-xl p-4 flex flex-col justify-between transition-all duration-200 group relative font-sans">
+      <div>
+        {/* 1. Category & Expiration Row */}
+        <div className="flex items-center justify-between text-xs text-[#94A3B8] mb-2.5">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-950 text-cyan-300 border border-cyan-800">
+            <span className="w-6 h-6 rounded-full bg-[#1C1E26] border border-[#252832] flex items-center justify-center text-xs">
+              {getCategoryIcon(market.category)}
+            </span>
+            <span className="font-semibold text-[#94A3B8] uppercase text-[11px] tracking-wide">
               {market.category}
             </span>
-            {market.id === '1' && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-800">
-                Preprod Live
-              </span>
-            )}
           </div>
-          <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Open
-          </span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-[#64748B]">Resolves {formatCloseDate(market.closeTimestamp)}</span>
+          </div>
         </div>
 
-        {/* Question Title */}
-        <Link to={`/markets/${market.id}`} className="block group-hover:text-cyan-300 transition-colors">
-          <h3 className="font-bold text-slate-100 text-base leading-snug line-clamp-2">
+        {/* 2. Bold Market Question */}
+        <Link to={`/markets/${market.id}`} className="block group/title">
+          <h3 className="font-bold text-white text-[15px] leading-snug line-clamp-2 group-hover/title:text-[#F59E0B] transition-colors min-h-[42px]">
             {market.question}
           </h3>
         </Link>
-      </div>
 
-      {/* Split Odds Progress */}
-      <div className="space-y-2 pt-2">
-        <div className="flex items-center justify-between text-xs font-mono">
-          <span className="text-emerald-400 font-bold">YES {yesPercent}%</span>
-          <span className="text-rose-400 font-bold">NO {noPercent}%</span>
+        {/* 3. Probability Indicator Bar: Blue (YES) and Red (NO) */}
+        <div className="mt-3.5 mb-3">
+          <div className="flex justify-between text-xs font-semibold mb-1.5 tabular-nums">
+            <span className="text-[#0EA5E9]">{yesPercent}% YES</span>
+            <span className="text-[#F43F5E]">{noPercent}% NO</span>
+          </div>
+          <div className="w-full h-1.5 bg-[#0A0B0D] rounded-full overflow-hidden flex border border-[#252832]">
+            <div className="bg-[#0EA5E9] h-full rounded-l-full transition-all duration-500" style={{ width: `${yesPercent}%` }} />
+            <div className="bg-[#F43F5E] h-full rounded-r-full transition-all duration-500" style={{ width: `${noPercent}%` }} />
+          </div>
         </div>
 
-        <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
-          <div
-            style={{ width: `${yesPercent}%` }}
-            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-l-full transition-all duration-300"
-          />
-          <div
-            style={{ width: `${noPercent}%` }}
-            className="h-full bg-gradient-to-r from-rose-500 to-orange-500 rounded-r-full transition-all duration-300"
-          />
+        {/* 4. The Iconic YES / NO Action Buttons (Blue & Red) */}
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {/* YES Button (Blue) */}
+          <button
+            type="button"
+            onClick={(e) => handleOutcomeClick(e, 'yes')}
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#0EA5E9]/12 hover:bg-[#0EA5E9]/22 border border-[#0EA5E9]/30 hover:border-[#0EA5E9] transition-all active:scale-[0.98] group/yes cursor-pointer shadow-sm"
+          >
+            <span className="text-xs font-bold text-[#0EA5E9]">Yes</span>
+            <span className="text-xs font-bold text-[#0EA5E9] tabular-nums">{yesPercent}¢</span>
+          </button>
+
+          {/* NO Button (Red) */}
+          <button
+            type="button"
+            onClick={(e) => handleOutcomeClick(e, 'no')}
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#F43F5E]/12 hover:bg-[#F43F5E]/22 border border-[#F43F5E]/30 hover:border-[#F43F5E] transition-all active:scale-[0.98] group/no cursor-pointer shadow-sm"
+          >
+            <span className="text-xs font-bold text-[#F43F5E]">No</span>
+            <span className="text-xs font-bold text-[#F43F5E] tabular-nums">{noPercent}¢</span>
+          </button>
         </div>
       </div>
 
-      {/* Footer Info & Action */}
-      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-        <div className="text-slate-500 space-y-0.5">
-          <div className="font-mono text-slate-300 text-xs">
-            {market.totalVolume.toString()} <span className="text-slate-500 text-[10px]">units vol</span>
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Closes {formatCloseDate(market.closeTimestamp)}
-          </div>
+      {/* 5. Card Footer */}
+      <div className="mt-4 pt-3 border-t border-[#252832] flex items-center justify-between text-xs text-[#94A3B8]">
+        <div className="flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+          <span className="font-semibold text-white tabular-nums">{formatDust(market.totalVolume)} tDUST</span>
+          <span className="text-[11px] text-[#64748B]">Vol</span>
         </div>
 
         <Link
           to={`/markets/${market.id}`}
-          className="px-3.5 py-1.5 bg-slate-800 hover:bg-gradient-to-r hover:from-cyan-600 hover:to-blue-600 text-slate-200 hover:text-white font-semibold text-xs rounded-xl border border-slate-700 hover:border-transparent transition-all shadow cursor-pointer"
+          className="text-xs text-[#F59E0B] hover:text-[#D97706] font-semibold flex items-center gap-1"
         >
-          View Market →
+          <span>Trade</span>
+          <span>→</span>
         </Link>
       </div>
-    </div>
+    </article>
   );
 };
 

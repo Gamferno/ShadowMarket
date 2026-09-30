@@ -22,6 +22,14 @@ export function saveReceipts(receipts: Map<string, ShieldedBetReceipt>): void {
   }
 }
 
+export type BetReceipt = ShieldedBetReceipt;
+
+export function saveReceipt(receipt: ShieldedBetReceipt): void {
+  const receipts = loadReceipts();
+  receipts.set(receipt.id, receipt);
+  saveReceipts(receipts);
+}
+
 export function loadReceipts(): Map<string, ShieldedBetReceipt> {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
@@ -85,10 +93,9 @@ export function storeCreatedMarket(market: any): void {
       const serializable = {
         ...market,
         closeTimestamp: market.closeTimestamp.toString(),
-        totalStakeYes: market.totalStakeYes.toString(),
-        totalStakeNo: market.totalStakeNo.toString(),
         totalVolume: market.totalVolume.toString(),
-        betCounter: market.betCounter.toString()
+        betCounter: market.betCounter.toString(),
+        escrowBalance: (market.escrowBalance || 0n).toString()
       };
       existing.push(serializable);
       window.localStorage.setItem(CREATED_MARKETS_KEY, JSON.stringify(existing));
@@ -107,10 +114,9 @@ export function loadCreatedMarkets(): any[] {
         return parsed.map((m: any) => ({
           ...m,
           closeTimestamp: BigInt(m.closeTimestamp),
-          totalStakeYes: BigInt(m.totalStakeYes),
-          totalStakeNo: BigInt(m.totalStakeNo),
-          totalVolume: BigInt(m.totalVolume),
-          betCounter: BigInt(m.betCounter)
+          totalVolume: BigInt(m.totalVolume || 0),
+          betCounter: BigInt(m.betCounter || 0),
+          escrowBalance: BigInt(m.escrowBalance || 0)
         }));
       }
     } catch (err) {

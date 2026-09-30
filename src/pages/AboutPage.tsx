@@ -9,10 +9,10 @@ interface FAQItem {
 const FAQS: FAQItem[] = [
   {
     q: 'How are aggregate odds calculated if individual bets are secret?',
-    a: 'When you submit a bet, your machine generates a Zero-Knowledge PLONK proof demonstrating that your bet is valid and satisfies contract constraints. The circuit discloses only the aggregate addition to the market stake pool without revealing your side choice or position size.'
+    a: 'When you submit an order, your browser generates a client-side Zero-Knowledge PLONK proof demonstrating that your position is valid and satisfies contract constraints. The circuit discloses only the aggregate addition to the market stake pool without revealing your side choice or position size.'
   },
   {
-    q: 'Can miners, validators, or other bettors front-run or copy-trade my bets?',
+    q: 'Can miners, validators, or other traders front-run or copy-trade my bets?',
     a: 'No. On transparent blockchains like Ethereum or Solana, every transaction reveals the bettor identity, choice, and amount before confirmation, enabling MEV bots and copy-traders to exploit large positions. On Midnight, the contents of your bet are mathematically hidden inside a persistent cryptographic commitment.'
   },
   {
@@ -25,7 +25,7 @@ const FAQS: FAQItem[] = [
   },
   {
     q: 'What network is ShadowMarket deployed on?',
-    a: `ShadowMarket is live on the Midnight Preprod Network. The smart contract address is ${preprodConfig.contractAddress}, deployed at block #${preprodConfig.deployedAtBlock}.`
+    a: `ShadowMarket is live on the Midnight Preprod Network with verified contract deployment (Block #${preprodConfig.deployedAtBlock}).`
   }
 ];
 
@@ -33,132 +33,140 @@ export const AboutPage: React.FC = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
-    <div className="space-y-12 max-w-4xl mx-auto animate-fadeIn py-4">
-      {/* Title */}
+    <div className="space-y-10 max-w-4xl mx-auto py-4 font-sans">
+      {/* 1. Header */}
       <div className="text-center space-y-3">
-        <span className="px-3 py-1 bg-cyan-950/80 text-cyan-300 border border-cyan-800 text-xs font-semibold rounded-full font-mono">
-          Protocol Architecture &amp; Privacy Model
-        </span>
-        <h1 className="text-3xl sm:text-5xl font-black text-slate-100 tracking-tight">
-          How ShadowMarket Works
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#13151A] border border-[#252832] text-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+          <span className="text-[#FBBF24] font-medium">PLONK Zero-Knowledge</span>
+          <span className="text-[#64748B]">•</span>
+          <span className="text-[#94A3B8]">Confidential Architecture</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+          Confidential Execution Architecture
         </h1>
-        <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          ShadowMarket combines the predictive power of decentralized prediction markets with the mathematical privacy of Zero-Knowledge cryptography on Midnight.
+        <p className="text-xs sm:text-sm text-[#94A3B8] max-w-2xl mx-auto leading-relaxed">
+          ShadowMarket combines intuitive liquidity with the mathematical privacy of Zero-Knowledge cryptography on Midnight Network.
         </p>
       </div>
 
-      {/* Comparison Table: Polymarket vs ShadowMarket */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-        <div className="border-b border-slate-800 pb-4">
-          <h2 className="text-xl font-bold text-slate-100">
-            Transparent Markets vs ShadowMarket
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Why prediction markets require privacy to prevent front-running, censorship, and market manipulation.
+      {/* 2. Comparison Table: Transparent vs Confidential */}
+      <div className="bg-[#13151A] border border-[#252832] rounded-2xl p-6 sm:p-8 shadow-xl space-y-5">
+        <div className="border-b border-[#252832] pb-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">
+              Transparent Markets vs ShadowMarket on Midnight
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#FBBF24] border border-[#F59E0B]/30 font-medium">
+              100% MEV-Immune
+            </span>
+          </div>
+          <p className="text-xs text-[#94A3B8] mt-1">
+            Why prediction markets require zero-knowledge privacy to prevent front-running, copy-trading, and wallet profiling.
           </p>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-mono">
-                <th className="pb-3 font-semibold">Dimension</th>
-                <th className="pb-3 font-semibold text-rose-400">Transparent (Polymarket / EVM)</th>
-                <th className="pb-3 font-semibold text-emerald-400">ShadowMarket (Midnight ZK)</th>
+              <tr className="border-b border-[#252832] text-[#94A3B8] text-[11px] uppercase tracking-wider">
+                <th className="pb-3 font-semibold">Architectural Dimension</th>
+                <th className="pb-3 font-semibold text-[#F59E0B]">Transparent (EVM / Solana)</th>
+                <th className="pb-3 font-semibold text-[#0EA5E9]">ShadowMarket (Confidential)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
+            <tbody className="divide-y divide-[#252832] text-[#94A3B8]">
               <tr>
-                <td className="py-3 font-sans font-medium text-slate-200">Individual Bet Sizes</td>
-                <td className="py-3 text-rose-400/90">Public on ledger</td>
-                <td className="py-3 text-emerald-400 font-semibold">100% Shielded (ZK Commitment)</td>
+                <td className="py-3 font-medium text-white">Individual Bet Sizes</td>
+                <td className="py-3 text-[#F59E0B]">Plaintext on ledger</td>
+                <td className="py-3 text-[#0EA5E9] font-semibold">100% Shielded (ZK Commitment)</td>
               </tr>
               <tr>
-                <td className="py-3 font-sans font-medium text-slate-200">Bettor Choice (YES / NO)</td>
-                <td className="py-3 text-rose-400/90">Public in mempool &amp; state</td>
-                <td className="py-3 text-emerald-400 font-semibold">Private to the bettor</td>
+                <td className="py-3 font-medium text-white">Trader Choice (YES / NO)</td>
+                <td className="py-3 text-[#F59E0B]">Exposed in mempool &amp; state</td>
+                <td className="py-3 text-[#0EA5E9] font-semibold">Sealed locally in client witness</td>
               </tr>
               <tr>
-                <td className="py-3 font-sans font-medium text-slate-200">Copy-Trading &amp; Front-Running</td>
-                <td className="py-3 text-rose-400/90">High vulnerability (MEV bots)</td>
-                <td className="py-3 text-emerald-400 font-semibold">Eliminated (Zero MEV)</td>
+                <td className="py-3 font-medium text-white">Copy-Trading &amp; Front-Running</td>
+                <td className="py-3 text-[#F59E0B]">High vulnerability (MEV searchers)</td>
+                <td className="py-3 text-[#0EA5E9] font-semibold">Mathematically eliminated</td>
               </tr>
               <tr>
-                <td className="py-3 font-sans font-medium text-slate-200">Proof of Odds Integrity</td>
-                <td className="py-3 text-slate-400">Public balance sum</td>
-                <td className="py-3 text-cyan-400 font-semibold">Compact ZK Tally Circuit</td>
+                <td className="py-3 font-medium text-white">Proof of Odds Integrity</td>
+                <td className="py-3 text-white">Public balance sum</td>
+                <td className="py-3 text-[#0EA5E9] font-semibold">Compact ZK Tally Circuit</td>
               </tr>
               <tr>
-                <td className="py-3 font-sans font-medium text-slate-200">Payout Claims</td>
-                <td className="py-3 text-rose-400/90">Tied to original bettor address</td>
-                <td className="py-3 text-emerald-400 font-semibold">Anonymous Nullifier Scheme</td>
+                <td className="py-3 font-medium text-white">Payout Claims</td>
+                <td className="py-3 text-[#F59E0B]">Linked to original bettor address</td>
+                <td className="py-3 text-[#0EA5E9] font-semibold">Anonymous Nullifier Scheme</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* The 3 Execution Boundaries */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-        <h2 className="text-xl font-bold text-slate-100">
+      {/* 3. The 3 Execution Boundaries */}
+      <div className="bg-[#13151A] border border-[#252832] rounded-2xl p-6 sm:p-8 shadow-xl space-y-5">
+        <h2 className="text-lg font-bold text-white border-b border-[#252832] pb-4">
           The Three Execution Boundaries of Midnight
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-800 flex items-center justify-center font-bold text-cyan-400">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="bg-[#0A0B0D] p-5 rounded-xl border border-[#252832] space-y-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#F59E0B]/15 border border-[#F59E0B]/30 flex items-center justify-center font-bold text-[#F59E0B]">
               1
             </div>
-            <h3 className="font-bold text-slate-200 text-sm">Local Witness Boundary</h3>
-            <p className="text-slate-400 leading-relaxed text-[11px]">
+            <h3 className="font-bold text-white text-sm">Local Client Witness</h3>
+            <p className="text-[#94A3B8] leading-relaxed text-xs">
               Operates entirely inside your browser. Stores your private user secret, bet nonces, and position receipts in encrypted client storage. Never touches the blockchain.
             </p>
           </div>
 
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-950 border border-purple-800 flex items-center justify-center font-bold text-purple-400">
+          <div className="bg-[#0A0B0D] p-5 rounded-xl border border-[#252832] space-y-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#F59E0B]/15 border border-[#F59E0B]/30 flex items-center justify-center font-bold text-[#FBBF24]">
               2
             </div>
-            <h3 className="font-bold text-slate-200 text-sm">ZK Circuit Boundary</h3>
-            <p className="text-slate-400 leading-relaxed text-[11px]">
+            <h3 className="font-bold text-white text-sm">ZK Circuit Boundary</h3>
+            <p className="text-[#94A3B8] leading-relaxed text-xs">
               PLONK constraint system compiled via Midnight Compact Dev Tools. Verifies mathematical relations (solvency, odds, nullifiers) and outputs succinct zero-knowledge proofs.
             </p>
           </div>
 
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-800 flex items-center justify-center font-bold text-emerald-400">
+          <div className="bg-[#0A0B0D] p-5 rounded-xl border border-[#252832] space-y-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#F59E0B]/15 border border-[#F59E0B]/30 flex items-center justify-center font-bold text-[#F59E0B]">
               3
             </div>
-            <h3 className="font-bold text-slate-200 text-sm">Public Ledger Boundary</h3>
-            <p className="text-slate-400 leading-relaxed text-[11px]">
+            <h3 className="font-bold text-white text-sm">Public Ledger Boundary</h3>
+            <p className="text-[#94A3B8] leading-relaxed text-xs">
               Substrate-based Midnight Preprod blockchain. Stores market metadata, verified aggregate odds, and spent nullifier sets. Finalizes transactions irreversibly.
             </p>
           </div>
         </div>
       </div>
 
-      {/* FAQ Accordion */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-        <h2 className="text-xl font-bold text-slate-100">
+      {/* 4. FAQ Accordion */}
+      <div className="bg-[#13151A] border border-[#252832] rounded-2xl p-6 sm:p-8 shadow-xl space-y-5">
+        <h2 className="text-lg font-bold text-white border-b border-[#252832] pb-4">
           Frequently Asked Questions
         </h2>
 
-        <div className="divide-y divide-slate-800/80">
+        <div className="divide-y divide-[#252832]">
           {FAQS.map((faq, index) => (
             <div key={index} className="py-4">
               <button
                 type="button"
                 onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                className="w-full flex items-center justify-between text-left font-semibold text-slate-200 text-sm hover:text-cyan-400 transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between text-left font-semibold text-white text-sm hover:text-[#F59E0B] transition-colors cursor-pointer"
               >
                 <span>{faq.q}</span>
-                <span className="text-slate-500 font-mono ml-4 text-xs">
-                  {openFaq === index ? '▲' : '▼'}
+                <span className="text-[#94A3B8] font-semibold ml-4 text-sm">
+                  {openFaq === index ? '−' : '+'}
                 </span>
               </button>
 
               {openFaq === index && (
-                <p className="mt-2 text-xs text-slate-400 leading-relaxed pr-6 animate-fadeIn">
+                <p className="mt-2.5 text-xs text-[#94A3B8] leading-relaxed pr-6">
                   {faq.a}
                 </p>
               )}

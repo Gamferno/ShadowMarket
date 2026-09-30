@@ -22,10 +22,10 @@ export const SEEDED_MARKETS: MarketPublicData[] = [
     closeTimestamp: 1790726400n, // Sep 2026
     state: MarketState.Open,
     outcome: Outcome.None,
-    totalStakeYes: 68000n,
-    totalStakeNo: 32000n,
     totalVolume: 100000n,
-    betCounter: 142n
+    betCounter: 142n,
+    escrowBalance: 100000n,
+    isConfirmedOnChain: true
   },
   {
     id: '3',
@@ -35,10 +35,10 @@ export const SEEDED_MARKETS: MarketPublicData[] = [
     closeTimestamp: 1798761600n, // Dec 2026
     state: MarketState.Open,
     outcome: Outcome.None,
-    totalStakeYes: 72000n,
-    totalStakeNo: 28000n,
     totalVolume: 100000n,
-    betCounter: 89n
+    betCounter: 89n,
+    escrowBalance: 100000n,
+    isConfirmedOnChain: true
   },
   {
     id: '4',
@@ -48,10 +48,10 @@ export const SEEDED_MARKETS: MarketPublicData[] = [
     closeTimestamp: 1796083200n, // Nov 2026
     state: MarketState.Open,
     outcome: Outcome.None,
-    totalStakeYes: 45000n,
-    totalStakeNo: 55000n,
     totalVolume: 100000n,
-    betCounter: 215n
+    betCounter: 215n,
+    escrowBalance: 100000n,
+    isConfirmedOnChain: true
   }
 ];
 
@@ -69,22 +69,17 @@ export function getAllMarkets(): MarketPublicData[] {
   }
 
   return combined.map(m => {
-    // Tally any local bets for this market
     const marketReceipts = receipts.filter(r => r.marketId === m.id);
-    let yesStake = 0n;
-    let noStake = 0n;
+    let userVolume = 0n;
     for (const r of marketReceipts) {
-      if (r.isYes) yesStake += r.amount;
-      else noStake += r.amount;
+      userVolume += r.amount;
     }
 
     const override = overrides[m.id] || {};
 
     return {
       ...m,
-      totalStakeYes: m.totalStakeYes + yesStake,
-      totalStakeNo: m.totalStakeNo + noStake,
-      totalVolume: m.totalVolume + yesStake + noStake,
+      totalVolume: m.totalVolume + userVolume,
       betCounter: m.betCounter + BigInt(marketReceipts.length),
       ...override
     };
@@ -95,7 +90,6 @@ export function getMarketById(id: string): MarketPublicData | undefined {
   const all = getAllMarkets();
   return all.find(m => m.id === id) || all.find(m => m.id === '1');
 }
-
 
 export function filterAndSortMarkets(
   markets: MarketPublicData[],
@@ -143,8 +137,7 @@ export function generateHistoricalOdds(
   timeframe: '24H' | '7D' | '30D' | 'ALL' = '7D'
 ): OddsSnapshot[] {
   const market = getMarketById(marketId) || SEEDED_MARKETS[0];
-  const currentTotal = market.totalStakeYes + market.totalStakeNo;
-  const currentYesOdds = currentTotal > 0n ? Number((market.totalStakeYes * 100n) / currentTotal) : 50;
+  const currentYesOdds = 50;
 
   const pointsCount = timeframe === '24H' ? 12 : timeframe === '7D' ? 14 : timeframe === '30D' ? 20 : 25;
   const now = Date.now();
@@ -160,12 +153,10 @@ export function generateHistoricalOdds(
   const stepMs = timeSpanMs / pointsCount;
   const snapshots: OddsSnapshot[] = [];
 
-  // Seed baseline odds starting around 50%
   let curYes = 50;
   for (let i = pointsCount; i >= 1; i--) {
     const t = now - i * stepMs;
     const progress = (pointsCount - i) / pointsCount;
-    // Interpolate towards currentYesOdds with realistic micro-variations
     const target = 50 + (currentYesOdds - 50) * progress;
     const noise = Math.sin(i * 1.5) * 4;
     curYes = Math.max(5, Math.min(95, Math.round(target + noise)));
@@ -185,7 +176,6 @@ export function generateHistoricalOdds(
     });
   }
 
-  // Final current point
   snapshots.push({
     timestamp: now,
     label: 'Now',

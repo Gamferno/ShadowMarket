@@ -12,6 +12,7 @@ export interface MidnightWalletState {
   connectedApi: ConnectedAPI | null;
   userAddress: string | null;
   shieldedAddress: string | null;
+  walletSecret: Uint8Array | null;
   proofServerOk: boolean | null;
   indexerOk: boolean | null;
   isConnecting: boolean;
@@ -21,6 +22,35 @@ export interface MidnightWalletState {
   getProviders: () => Promise<MidnightProviders<any, any, any>>;
 }
 
+export async function deriveCryptographicWalletSecret(api: ConnectedAPI): Promise<Uint8Array> {
+  let baseIdentifier = 'shadowmarket:wallet:default';
+  try {
+    if (typeof (api as any).signData === 'function') {
+      const challenge = new TextEncoder().encode('ShadowMarket:CryptographicAuthentication:v1');
+      const sig = await (api as any).signData(challenge);
+      baseIdentifier = typeof sig === 'string' ? sig : JSON.stringify(sig);
+    } else {
+      const shielded = await api.getShieldedAddresses().catch(() => null);
+      const unshielded = await api.getUnshieldedAddress().catch(() => null);
+      baseIdentifier = `shadowmarket:wallet:${shielded?.shieldedCoinPublicKey || ''}:${unshielded?.unshieldedAddress || ''}`;
+    }
+  } catch (err) {
+    console.warn('SignData fallback to address-bound derivation:', err);
+    const unshielded = await api.getUnshieldedAddress().catch(() => null);
+    baseIdentifier = `shadowmarket:wallet:fallback:${unshielded?.unshieldedAddress || 'anonymous'}`;
+  }
+
+  const encoded = new TextEncoder().encode(baseIdentifier);
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const hash = await crypto.subtle.digest('SHA-256', encoded);
+    return new Uint8Array(hash);
+  } else {
+    const buffer = Buffer.from(baseIdentifier);
+    const cryptoNode = await import('crypto');
+    return new Uint8Array(cryptoNode.createHash('sha256').update(buffer).digest());
+  }
+}
+
 export const useMidnight = (): MidnightWalletState => {
   const [has1am, setHas1am] = useState<boolean>(false);
   const [hasLace, setHasLace] = useState<boolean>(false);
@@ -28,6 +58,7 @@ export const useMidnight = (): MidnightWalletState => {
   const [connectedApi, setConnectedApi] = useState<ConnectedAPI | null>(null);
   const [userAddress, setUserAddress] = useState<string | null>(preprodConfig.deployerAddress || null);
   const [shieldedAddress, setShieldedAddress] = useState<string | null>(null);
+  const [walletSecret, setWalletSecret] = useState<Uint8Array | null>(null);
   const [proofServerOk, setProofServerOk] = useState<boolean | null>(null);
   const [indexerOk, setIndexerOk] = useState<boolean | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
@@ -102,7 +133,6 @@ export const useMidnight = (): MidnightWalletState => {
         walletToConnect = midnight.mnLace;
         walletName = 'Lace';
       } else {
-        // Default to 1am
         if (midnight['1am']) {
           walletToConnect = midnight['1am'];
         } else {
@@ -114,7 +144,6 @@ export const useMidnight = (): MidnightWalletState => {
         walletName = '1am';
       }
 
-      // Fallback to any injected wallet with a connect method
       if (!walletToConnect) {
         const anyWallet = Object.values(midnight).find((w: any) => w && typeof w.connect === 'function');
         if (anyWallet) walletToConnect = anyWallet;
@@ -128,7 +157,6 @@ export const useMidnight = (): MidnightWalletState => {
       try {
         api = await walletToConnect.connect('preprod');
       } catch (firstErr: any) {
-        // Chrome MV3 extension background service workers may be dormant; retry once if initial handshake dropped
         if (firstErr?.code !== 'PermissionRejected') {
           console.warn('Initial wallet connection dropped, retrying handshake...', firstErr);
           await new Promise((resolve) => setTimeout(resolve, 800));
@@ -160,6 +188,14 @@ export const useMidnight = (): MidnightWalletState => {
         console.warn('Could not fetch shielded address:', err);
       }
 
+      // Derive authentic cryptographic wallet secret
+      try {
+        const secret = await deriveCryptographicWalletSecret(api);
+        setWalletSecret(secret);
+      } catch (err) {
+        console.warn('Could not derive wallet secret:', err);
+      }
+
       setIsConnecting(false);
       return api;
     } catch (err: any) {
@@ -174,6 +210,7 @@ export const useMidnight = (): MidnightWalletState => {
     setConnectedApi(null);
     setConnectedWallet(null);
     setShieldedAddress(null);
+    setWalletSecret(null);
   }, []);
 
   const getProviders = useCallback(async (): Promise<MidnightProviders<any, any, any>> => {
@@ -191,6 +228,7 @@ export const useMidnight = (): MidnightWalletState => {
     connectedApi,
     userAddress,
     shieldedAddress,
+    walletSecret,
     proofServerOk,
     indexerOk,
     isConnecting,

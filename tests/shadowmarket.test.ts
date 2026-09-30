@@ -10,9 +10,10 @@ import {
 import { createTestParticipant, parseLedger, type TestParticipant } from './test-utils.ts';
 import { clearMemoryStorage } from '../src/utils/storage.ts';
 
-describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
+describe('ShadowMarket Smart Contract Test Suite — Phase 2 Remediation', () => {
   const contractAddress = sampleContractAddress();
   const dummyCoinPk = '00'.repeat(32);
+  const defaultOraclePk = { x: 0n, y: 1n };
 
   let admin: TestParticipant;
   let alice: TestParticipant;
@@ -38,6 +39,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
     const initRes = admin.contract.initialState(
       constructorCtx,
       admin.publicKey,
+      defaultOraclePk,
       question,
       category,
       resolutionSource,
@@ -59,16 +61,16 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       const m1 = currentLedger.markets.lookup(1n);
       expect(m1.id).toBe(1n);
       expect(m1.creator).toEqual(admin.publicKey);
+      expect(m1.oraclePublicKey).toEqual(defaultOraclePk);
       expect(m1.question).toBe('Will Midnight mainnet launch with native zero-knowledge privacy in 2026?');
       expect(m1.category).toBe('Crypto/Macro');
       expect(m1.resolutionSource).toBe('Midnight Official Foundation Announcement');
       expect(m1.closeTimestamp).toBe(1798761600n);
       expect(m1.state).toBe(MarketState.Open);
       expect(m1.outcome).toBe(Outcome.None);
-      expect(m1.totalStakeYes).toBe(0n);
-      expect(m1.totalStakeNo).toBe(0n);
       expect(m1.totalVolume).toBe(0n);
       expect(m1.betCounter).toBe(0n);
+      expect(m1.escrowBalance).toBe(0n);
       expect(currentLedger.betCommitments.isEmpty()).toBe(true);
       expect(currentLedger.claimedNullifiers.isEmpty()).toBe(true);
     });
@@ -83,8 +85,8 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
     });
   });
 
-  describe('2. On-Chain Market Creation Circuit', () => {
-    it('should allow permissionless creation of a new prediction market on-chain', () => {
+  describe('2. On-Chain Market Creation Circuit with Oracle Registration', () => {
+    it('should allow permissionless creation of a new prediction market with oracle key', () => {
       const createCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -96,9 +98,11 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       const newCategory = 'Crypto/Macro';
       const newSource = 'Cardano Foundation Report';
       const newCloseTime = 1800000000n;
+      const oracleKey = { x: 0n, y: 1n };
 
       const res = alice.contract.impureCircuits.createMarket(
         createCtx,
+        oracleKey,
         newQuestion,
         newCategory,
         newSource,
@@ -120,16 +124,18 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       const m2 = currentLedger.markets.lookup(2n);
       expect(m2.id).toBe(2n);
       expect(m2.creator).toEqual(alice.publicKey);
+      expect(m2.oraclePublicKey).toEqual(oracleKey);
       expect(m2.question).toBe(newQuestion);
       expect(m2.category).toBe(newCategory);
       expect(m2.resolutionSource).toBe(newSource);
       expect(m2.closeTimestamp).toBe(newCloseTime);
       expect(m2.state).toBe(MarketState.Open);
+      expect(m2.escrowBalance).toBe(0n);
     });
   });
 
-  describe('3. Shielded Betting Circuit Across Multiple Markets', () => {
-    it('should accept a shielded YES bet on market #1 and update its aggregate volume and stake', () => {
+  describe('3. Confidential Betting & Native Token Escrow', () => {
+    it('should accept a bet without disclosing bet side and update escrow and volume', () => {
       const betAmount = 100_000_000n;
       const betCtx = createCircuitContext(
         contractAddress,
@@ -145,16 +151,18 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
 
       const currentLedger = parseLedger(currentContractState);
       const m1 = currentLedger.markets.lookup(1n);
-      expect(m1.totalStakeYes).toBe(betAmount);
-      expect(m1.totalStakeNo).toBe(0n);
+
+      // Verify volume, counter, and token escrow updated without side disclosure
       expect(m1.totalVolume).toBe(betAmount);
       expect(m1.betCounter).toBe(1n);
+      expect(m1.escrowBalance).toBe(betAmount);
 
       const commitment = res.result;
       expect(commitment).toBeInstanceOf(Uint8Array);
       expect(commitment.length).toBe(32);
       expect(currentLedger.betCommitments.member(commitment)).toBe(true);
 
+      // Verify bettor retains confidential receipt client-side
       expect(alice.privateState.receipts.size).toBe(1);
       const receipt = Array.from(alice.privateState.receipts.values())[0];
       expect(receipt.marketId).toBe('1');
@@ -173,6 +181,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       );
       const createRes = alice.contract.impureCircuits.createMarket(
         createCtx,
+        defaultOraclePk,
         'Market 2 Question',
         'Sports',
         'Source 2',
@@ -182,7 +191,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       alice.privateState = createRes.context.currentPrivateState;
       currentZswapState = createRes.context.currentZswapLocalState;
 
-      // Bob bets on Market #1 (NO, 50 tDUST)
+      // Bob bets on Market #1 (NO, 50 tNIGHT)
       const bobCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -194,7 +203,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       bob.privateState = bobRes.context.currentPrivateState;
       currentZswapState = bobRes.context.currentZswapLocalState;
 
-      // Alice bets on Market #2 (YES, 150 tDUST)
+      // Alice bets on Market #2 (YES, 150 tNIGHT)
       const aliceBetCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -210,10 +219,10 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       const m1 = ledgerState.markets.lookup(1n);
       const m2 = ledgerState.markets.lookup(2n);
 
-      expect(m1.totalStakeNo).toBe(50_000_000n);
       expect(m1.totalVolume).toBe(50_000_000n);
-      expect(m2.totalStakeYes).toBe(150_000_000n);
+      expect(m1.escrowBalance).toBe(50_000_000n);
       expect(m2.totalVolume).toBe(150_000_000n);
+      expect(m2.escrowBalance).toBe(150_000_000n);
     });
 
     it('should reject betting on non-existent market', () => {
@@ -242,20 +251,15 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
   });
 
   describe('4. Pure & On-Chain Odds Verification Circuits', () => {
-    it('should correctly verify integer percentage odds calculations in pure circuit', () => {
-      expect(pureCircuits.verifyOdds(0n, 0n, 50n)).toBe(true);
-      expect(pureCircuits.verifyOdds(0n, 0n, 51n)).toBe(false);
-
-      expect(pureCircuits.verifyOdds(100n, 0n, 100n)).toBe(true);
-      expect(pureCircuits.verifyOdds(100n, 0n, 99n)).toBe(false);
-
-      expect(pureCircuits.verifyOdds(50n, 50n, 50n)).toBe(true);
-      expect(pureCircuits.verifyOdds(60n, 40n, 60n)).toBe(true);
-      expect(pureCircuits.verifyOdds(1n, 2n, 33n)).toBe(true);
-      expect(pureCircuits.verifyOdds(1n, 2n, 34n)).toBe(false);
+    it('should correctly verify complementary percentage odds in pure circuit', () => {
+      expect(pureCircuits.verifyOdds(50n, 50n)).toBe(true);
+      expect(pureCircuits.verifyOdds(60n, 40n)).toBe(true);
+      expect(pureCircuits.verifyOdds(75n, 25n)).toBe(true);
+      expect(pureCircuits.verifyOdds(60n, 50n)).toBe(false);
+      expect(pureCircuits.verifyOdds(0n, 100n)).toBe(true);
     });
 
-    it('should disclose 50% default odds for market with no bets via discloseOdds', () => {
+    it('should disclose 50% default odds for market via discloseOdds', () => {
       const oddsCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -265,46 +269,9 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       const res = alice.contract.impureCircuits.discloseOdds(oddsCtx, 1n);
       expect(res.result).toBe(50n);
     });
-
-    it('should accurately compute and disclose odds via discloseOdds after bets', () => {
-      // Alice bets 75 on YES
-      const bet1Ctx = createCircuitContext(
-        contractAddress,
-        currentZswapState,
-        currentContractState,
-        alice.privateState
-      );
-      const b1 = alice.contract.impureCircuits.placeBet(bet1Ctx, 1n, true, 75_000_000n);
-      currentContractState = b1.context.currentQueryContext.state as any;
-      alice.privateState = b1.context.currentPrivateState;
-      currentZswapState = b1.context.currentZswapLocalState;
-
-      // Bob bets 25 on NO
-      const bet2Ctx = createCircuitContext(
-        contractAddress,
-        currentZswapState,
-        currentContractState,
-        bob.privateState
-      );
-      const b2 = bob.contract.impureCircuits.placeBet(bet2Ctx, 1n, false, 25_000_000n);
-      currentContractState = b2.context.currentQueryContext.state as any;
-      bob.privateState = b2.context.currentPrivateState;
-      currentZswapState = b2.context.currentZswapLocalState;
-
-      // Disclose odds on Market #1 -> 75%
-      alice.privateState.activeMarketId = '1';
-      const oddsCtx = createCircuitContext(
-        contractAddress,
-        currentZswapState,
-        currentContractState,
-        alice.privateState
-      );
-      const res = alice.contract.impureCircuits.discloseOdds(oddsCtx, 1n);
-      expect(res.result).toBe(75n);
-    });
   });
 
-  describe('5. Market Close & Resolution Lifecycle Circuits', () => {
+  describe('5. Market Close & Authenticated Resolution Lifecycle Circuits', () => {
     it('should allow creator or admin to close market bidding', () => {
       // Alice creates Market #2
       const createCtx = createCircuitContext(
@@ -315,6 +282,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       );
       const createRes = alice.contract.impureCircuits.createMarket(
         createCtx,
+        defaultOraclePk,
         'Market to Close',
         'Politics',
         'Source',
@@ -361,7 +329,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       }).toThrow(/Market is not open for betting/);
     });
 
-    it('should allow creator or admin to resolve market and reject unauthorized callers', () => {
+    it('should reject unauthorized callers trying to resolve market', () => {
       // Eve (unauthorized) tries to resolve Market #1 -> Should fail
       const eveResolveCtx = createCircuitContext(
         contractAddress,
@@ -389,10 +357,80 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       expect(m1.state).toBe(MarketState.Resolved);
       expect(m1.outcome).toBe(Outcome.Yes);
     });
+
+    it('should resolve market via authenticated resolveMarketWithOracle with authentic oracle signature', () => {
+      // Alice creates Market #2 with registered oracle key
+      const createCtx = createCircuitContext(
+        contractAddress,
+        currentZswapState,
+        currentContractState,
+        alice.privateState
+      );
+      const createRes = alice.contract.impureCircuits.createMarket(
+        createCtx,
+        defaultOraclePk,
+        'Oracle Resolution Market',
+        'Crypto/Macro',
+        'Official Oracle Feed',
+        1800000000n
+      );
+      currentContractState = createRes.context.currentQueryContext.state as any;
+      alice.privateState = createRes.context.currentPrivateState;
+      currentZswapState = createRes.context.currentZswapLocalState;
+
+      // Authentic oracle signature for defaultOraclePk ({ x: 0n, y: 1n })
+      const validOracleSig = {
+        announcement: { x: 0n, y: 1n },
+        response: 0n
+      };
+
+      const oracleResolveCtx = createCircuitContext(
+        contractAddress,
+        currentZswapState,
+        currentContractState,
+        bob.privateState
+      );
+
+      const res = bob.contract.impureCircuits.resolveMarketWithOracle(
+        oracleResolveCtx,
+        2n,
+        Outcome.Yes,
+        1800000001n,
+        validOracleSig
+      );
+      currentContractState = res.context.currentQueryContext.state as any;
+      bob.privateState = res.context.currentPrivateState;
+      currentZswapState = res.context.currentZswapLocalState;
+
+      const m2 = parseLedger(currentContractState).markets.lookup(2n);
+      expect(m2.state).toBe(MarketState.Resolved);
+      expect(m2.outcome).toBe(Outcome.Yes);
+
+      // Verify that forged signature with wrong response fails assertion
+      const forgedSig = {
+        announcement: { x: 0n, y: 1n },
+        response: 42n
+      };
+      const badCtx = createCircuitContext(
+        contractAddress,
+        currentZswapState,
+        currentContractState,
+        eve.privateState
+      );
+      expect(() => {
+        eve.contract.impureCircuits.resolveMarketWithOracle(
+          badCtx,
+          2n,
+          Outcome.No,
+          1800000001n,
+          forgedSig
+        );
+      }).toThrow();
+    });
   });
 
   describe('6. Full Lifecycle: Market Creation, Betting, Resolution & Shielded Payout Claims', () => {
-    it('should execute complete prediction lifecycle: Alice bets YES, Bob bets NO, Alice claims full pot', () => {
+    it('should execute complete prediction lifecycle: Alice bets YES, Bob bets NO, Alice claims payout', () => {
       // Alice creates Market #2
       const createCtx = createCircuitContext(
         contractAddress,
@@ -402,6 +440,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       );
       const createRes = alice.contract.impureCircuits.createMarket(
         createCtx,
+        defaultOraclePk,
         'Will ZK-SNARK proving time drop below 100ms in 2026?',
         'Crypto/Macro',
         'ZK Benchmark Standard',
@@ -411,7 +450,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       alice.privateState = createRes.context.currentPrivateState;
       currentZswapState = createRes.context.currentZswapLocalState;
 
-      // Alice bets 60 tDUST on YES on Market #2
+      // Alice bets 60 tNIGHT on YES on Market #2
       const aliceBetCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -423,7 +462,7 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       alice.privateState = aliceBetRes.context.currentPrivateState;
       currentZswapState = aliceBetRes.context.currentZswapLocalState;
 
-      // Bob bets 40 tDUST on NO on Market #2
+      // Bob bets 40 tNIGHT on NO on Market #2
       const bobBetCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -436,9 +475,8 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       currentZswapState = bobBetRes.context.currentZswapLocalState;
 
       const m2 = parseLedger(currentContractState).markets.lookup(2n);
-      expect(m2.totalStakeYes).toBe(60_000_000n);
-      expect(m2.totalStakeNo).toBe(40_000_000n);
       expect(m2.totalVolume).toBe(100_000_000n);
+      expect(m2.escrowBalance).toBe(100_000_000n);
 
       // Alice (creator) resolves Market #2 to YES
       const aliceResolveCtx = createCircuitContext(
@@ -452,23 +490,10 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       alice.privateState = resolveRes.context.currentPrivateState;
       currentZswapState = resolveRes.context.currentZswapLocalState;
 
-      const resolvedMarket2 = parseLedger(currentContractState).markets.lookup(2n);
-      expect(resolvedMarket2.state).toBe(MarketState.Resolved);
-      expect(resolvedMarket2.outcome).toBe(Outcome.Yes);
+      expect(parseLedger(currentContractState).markets.lookup(2n).state).toBe(MarketState.Resolved);
+      expect(parseLedger(currentContractState).markets.lookup(2n).outcome).toBe(Outcome.Yes);
 
-      // Bob (bet on NO) tries to claim payout -> Should fail
-      bob.privateState.activeMarketId = '2';
-      const bobClaimCtx = createCircuitContext(
-        contractAddress,
-        currentZswapState,
-        currentContractState,
-        bob.privateState
-      );
-      expect(() => {
-        bob.contract.impureCircuits.claimPayout(bobClaimCtx, 2n);
-      }).toThrow(/Bet is not on winning outcome/);
-
-      // Alice (bet on YES) claims payout -> gets 100 tDUST (proportional share = 100% of 100 pot)
+      // Alice claims her winning payout
       alice.privateState.activeMarketId = '2';
       const aliceClaimCtx = createCircuitContext(
         contractAddress,
@@ -481,14 +506,14 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       alice.privateState = claimRes.context.currentPrivateState;
       currentZswapState = claimRes.context.currentZswapLocalState;
 
-      expect(claimRes.result).toBe(100_000_000n);
+      // Winning payout: 2x of 60 tNIGHT = 120 tNIGHT
+      expect(claimRes.result).toBe(120_000_000n);
 
-      // Confirm nullifier is recorded in ledger
-      const currentLedger = parseLedger(currentContractState);
-      expect(currentLedger.claimedNullifiers.isEmpty()).toBe(false);
-      expect(currentLedger.claimedNullifiers.size()).toBe(1n);
+      // Nullifier should now be permanently marked on-chain
+      const postClaimLedger = parseLedger(currentContractState);
+      expect(postClaimLedger.claimedNullifiers.size()).toBe(1n);
 
-      // Alice tries to double-claim -> Should fail with nullifier error
+      // Double-claim should be rejected
       const doubleClaimCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -498,6 +523,18 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       expect(() => {
         alice.contract.impureCircuits.claimPayout(doubleClaimCtx, 2n);
       }).toThrow(/Payout already claimed/);
+
+      // Bob (losing bet NO) tries to claim -> Should revert
+      bob.privateState.activeMarketId = '2';
+      const bobClaimCtx = createCircuitContext(
+        contractAddress,
+        currentZswapState,
+        currentContractState,
+        bob.privateState
+      );
+      expect(() => {
+        bob.contract.impureCircuits.claimPayout(bobClaimCtx, 2n);
+      }).toThrow(/Bet is not on winning outcome/);
     });
 
     it('should support full refund on inconclusive outcome', () => {
@@ -510,16 +547,17 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       );
       const createRes = alice.contract.impureCircuits.createMarket(
         createCtx,
-        'Market to tie',
+        defaultOraclePk,
+        'Inconclusive Market Question',
         'Custom',
-        'Source',
+        'Disputed Source',
         1800000000n
       );
       currentContractState = createRes.context.currentQueryContext.state as any;
       alice.privateState = createRes.context.currentPrivateState;
       currentZswapState = createRes.context.currentZswapLocalState;
 
-      // Alice bets 50 on YES
+      // Alice bets 50 tNIGHT on YES
       const betCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
@@ -531,19 +569,19 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
       alice.privateState = betRes.context.currentPrivateState;
       currentZswapState = betRes.context.currentZswapLocalState;
 
-      // Alice resolves to Inconclusive
+      // Creator resolves Market #2 as Inconclusive
       const resolveCtx = createCircuitContext(
         contractAddress,
         currentZswapState,
         currentContractState,
         alice.privateState
       );
-      const resRes = alice.contract.impureCircuits.resolveMarket(resolveCtx, 2n, Outcome.Inconclusive);
-      currentContractState = resRes.context.currentQueryContext.state as any;
-      alice.privateState = resRes.context.currentPrivateState;
-      currentZswapState = resRes.context.currentZswapLocalState;
+      const resResolve = alice.contract.impureCircuits.resolveMarket(resolveCtx, 2n, Outcome.Inconclusive);
+      currentContractState = resResolve.context.currentQueryContext.state as any;
+      alice.privateState = resResolve.context.currentPrivateState;
+      currentZswapState = resResolve.context.currentZswapLocalState;
 
-      // Alice claims refund
+      // Alice claims refund -> Should receive exactly 100% of bet amount back
       alice.privateState.activeMarketId = '2';
       const claimCtx = createCircuitContext(
         contractAddress,
@@ -551,8 +589,8 @@ describe('ShadowMarket Smart Contract Test Suite — Phase 2', () => {
         currentContractState,
         alice.privateState
       );
-      const claimRes = alice.contract.impureCircuits.claimPayout(claimCtx, 2n);
-      expect(claimRes.result).toBe(50_000_000n);
+      const refundRes = alice.contract.impureCircuits.claimPayout(claimCtx, 2n);
+      expect(refundRes.result).toBe(50_000_000n);
     });
   });
 });

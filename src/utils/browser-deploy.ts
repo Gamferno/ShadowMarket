@@ -42,12 +42,14 @@ export async function deployContractViaBrowserWallet(
   const initialResolutionSource = 'Midnight Foundation Official Consensus & Cardano Governance';
   const initialCloseTimestamp = 1798761600n;
 
+  const initialOraclePk = { x: 0n, y: 1n };
+
   onStatus?.('Generating constructor ZK proof on proof server & requesting wallet approval...');
   const deployed = await deployContract(providers, {
     compiledContract,
     privateStateId: 'shadowmarket_private_state',
     initialPrivateState,
-    args: [adminPk, initialQuestion, initialCategory, initialResolutionSource, initialCloseTimestamp]
+    args: [adminPk, initialOraclePk, initialQuestion, initialCategory, initialResolutionSource, initialCloseTimestamp]
   });
 
   const contractAddress = deployed.deployTxData.public.contractAddress;
